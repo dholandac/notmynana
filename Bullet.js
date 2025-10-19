@@ -1,21 +1,18 @@
-// Bullet.js - Classe dos projéteis
-
 class Bullet {
     constructor(x, y, dirX, dirY, owner, powerups = null) {
         this.x = x;
         this.y = y;
         this.dirX = dirX;
         this.dirY = dirY;
-        this.owner = owner; // 'player' ou 'enemy'
+        this.owner = owner;
         this.active = true;
         
-        // Aplica powerups se for do jogador
         if (owner === 'player' && powerups) {
             this.width = CONFIG.BULLET_WIDTH * powerups.bulletSize;
             this.height = CONFIG.BULLET_HEIGHT * powerups.bulletSize;
             this.speed = CONFIG.BULLET_SPEED * powerups.bulletSpeed;
             this.piercing = powerups.piercing;
-            this.hitEnemies = []; // Para piercing
+            this.hitEnemies = [];
         } else {
             this.width = CONFIG.BULLET_WIDTH;
             this.height = CONFIG.BULLET_HEIGHT;
@@ -36,7 +33,6 @@ class Bullet {
             this.active = false;
         }
         
-        // Remove se sair dos limites do mundo
         if (this.x < 0 || this.x > CONFIG.WORLD_WIDTH ||
             this.y < 0 || this.y > CONFIG.WORLD_HEIGHT) {
             this.active = false;
@@ -51,13 +47,11 @@ class Bullet {
         ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Adiciona brilho
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.beginPath();
         ctx.arc(this.x - radius * 0.3, this.y - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
         ctx.fill();
         
-        // Efeito visual para piercing
         if (this.piercing) {
             ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
             ctx.lineWidth = 2;
@@ -68,10 +62,7 @@ class Bullet {
     }
     
     canHitEnemy(enemy) {
-        // Se não é piercing, sempre pode acertar
         if (!this.piercing) return true;
-        
-        // Se é piercing, verifica se já não acertou esse inimigo
         return !this.hitEnemies.includes(enemy);
     }
     

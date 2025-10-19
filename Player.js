@@ -1,5 +1,3 @@
-// Player.js - Classe do jogador (Vovó)
-
 class Player {
     constructor(x, y) {
         this.x = x;
@@ -9,39 +7,34 @@ class Player {
         this.speed = CONFIG.PLAYER_SPEED;
         this.lives = CONFIG.PLAYER_MAX_LIVES;
         
-        // Powerups do jogador
         this.powerups = {
-            fireRate: 1,      // Multiplicador (menor = mais rápido)
-            bulletSpeed: 1,   // Multiplicador
-            bulletSize: 1,    // Multiplicador
-            moveSpeed: 1,     // Multiplicador
-            piercing: false   // Boolean
+            fireRate: 1,
+            bulletSpeed: 1,
+            bulletSize: 1,
+            moveSpeed: 1,
+            piercing: false
         };
         
         this.vx = 0;
         this.vy = 0;
-        this.direction = 'baixo'; // direção que a vovó está olhando
-        this.lastDirection = 'baixo'; // última direção válida para atirar quando parado
-        this.lastMoveWasHorizontalOnly = false; // rastreia se o último movimento foi só horizontal
-        this.lastHorizontalDir = 0; // -1 para esquerda, 1 para direita, 0 para nenhum
+        this.direction = 'baixo';
+        this.lastDirection = 'baixo';
+        this.lastMoveWasHorizontalOnly = false;
+        this.lastHorizontalDir = 0;
         
-        // Imagens
         this.images = {};
         this.imagesLoaded = false;
         this.loadImages();
         
-        // Controles
         this.keys = {};
         this.setupControls();
         
-        // Cooldown de tiro (ajustado por powerups)
         this.shootCooldown = 0;
         this.shootCooldownTime = CONFIG.PLAYER_SHOOT_COOLDOWN;
         
-        // Invulnerabilidade temporária após levar dano
         this.invulnerable = false;
         this.invulnerabilityTime = 0;
-        this.invulnerabilityDuration = 2000; // ms
+        this.invulnerabilityDuration = 2000;
     }
     
     loadImages() {
@@ -79,12 +72,10 @@ class Player {
     }
     
     update(deltaTime) {
-        // Atualiza cooldown de tiro
         if (this.shootCooldown > 0) {
             this.shootCooldown -= deltaTime;
         }
         
-        // Atualiza invulnerabilidade
         if (this.invulnerable) {
             this.invulnerabilityTime -= deltaTime;
             if (this.invulnerabilityTime <= 0) {
@@ -92,12 +83,10 @@ class Player {
             }
         }
         
-        // Verifica se está atirando
         if (this.keys[' ']) {
-            return this.shoot(); // Retorna o bullet se criado
+            return this.shoot();
         }
         
-        // Movimento
         this.vx = 0;
         this.vy = 0;
         
@@ -126,49 +115,41 @@ class Player {
             moving = true;
         }
         
-        // Normaliza velocidade diagonal
         if (this.vx !== 0 && this.vy !== 0) {
-            this.vx *= 0.707; // 1/sqrt(2)
+            this.vx *= 0.707;
             this.vy *= 0.707;
         }
         
-        // Atualiza direção
         if (moving) {
             if (vertical && horizontal) {
                 this.direction = vertical + horizontal;
-                this.lastDirection = this.direction; // Armazena última direção válida
+                this.lastDirection = this.direction;
                 this.lastMoveWasHorizontalOnly = false;
             } else if (vertical) {
                 this.direction = vertical;
                 this.lastDirection = this.direction;
                 this.lastMoveWasHorizontalOnly = false;
             } else if (horizontal) {
-                // Se movendo só horizontalmente, mantém última direção vertical conhecida
-                // mas armazena também a direção horizontal pura
                 this.lastHorizontal = horizontal;
-                this.lastMoveWasHorizontalOnly = true; // Marca que o último movimento foi só horizontal
-                this.lastHorizontalDir = (horizontal === 'dir') ? 1 : -1; // Salva a direção horizontal
+                this.lastMoveWasHorizontalOnly = true;
+                this.lastHorizontalDir = (horizontal === 'dir') ? 1 : -1;
                 
                 if (this.direction.includes('cima') && !this.direction.includes('baixo')) {
                     this.direction = 'cima' + horizontal;
                 } else if (this.direction.includes('baixo')) {
                     this.direction = 'baixo' + horizontal;
                 } else {
-                    // Se não tinha direção vertical, assume baixo como padrão
                     this.direction = 'baixo' + horizontal;
                 }
-                this.lastDirection = this.direction; // Armazena última direção válida
+                this.lastDirection = this.direction;
             }
         } else {
-            // Quando parado, limpa movimento horizontal temporário
             this.lastHorizontal = null;
         }
         
-        // Atualiza posição
         this.x += this.vx;
         this.y += this.vy;
         
-        // Limita aos bounds do mundo
         this.x = clamp(this.x, 0, CONFIG.WORLD_WIDTH - this.width);
         this.y = clamp(this.y, 0, CONFIG.WORLD_HEIGHT - this.height);
         
@@ -179,29 +160,23 @@ class Player {
         if (this.shootCooldown <= 0) {
             this.shootCooldown = this.shootCooldownTime;
             
-            // Calcula direção do tiro baseado no MOVIMENTO ATUAL (teclas pressionadas)
             let dirX = 0, dirY = 0;
             
-            // Verifica as teclas pressionadas AGORA para determinar direção do tiro
             const movingUp = this.keys['w'] || this.keys['arrowup'];
             const movingDown = this.keys['s'] || this.keys['arrowdown'];
             const movingLeft = this.keys['a'] || this.keys['arrowleft'];
             const movingRight = this.keys['d'] || this.keys['arrowright'];
             
-            // Determina direção baseado nas teclas
             if (movingUp && !movingDown) dirY = -1;
             if (movingDown && !movingUp) dirY = 1;
             if (movingLeft && !movingRight) dirX = -1;
             if (movingRight && !movingLeft) dirX = 1;
             
-            // Se não está movendo, usa a última direção válida (direção da sprite)
             if (dirX === 0 && dirY === 0) {
-                // Se o último movimento foi só horizontal, atira apenas na horizontal
                 if (this.lastMoveWasHorizontalOnly) {
-                    dirX = this.lastHorizontalDir; // -1 para esquerda, 1 para direita
-                    dirY = 0; // Não atira na vertical
+                    dirX = this.lastHorizontalDir;
+                    dirY = 0;
                 } else {
-                    // Caso contrário, usa a direção da sprite
                     const lastDir = this.lastDirection;
                     
                     if (lastDir === 'cimadir') {
@@ -221,18 +196,15 @@ class Player {
                     } else if (lastDir === 'baixo') {
                         dirY = 1;
                     } else {
-                        // Default para baixo
                         dirY = 1;
                     }
                 }
             }
             
-            // Normaliza APENAS se for diagonal (ambos dirX e dirY são != 0)
             if (dirX !== 0 && dirY !== 0) {
                 dirX *= 0.707;
                 dirY *= 0.707;
             }
-            // Se for horizontal ou vertical puro, mantém os valores 1 ou -1 sem normalizar
             
             const bullet = new Bullet(
                 this.x + this.width / 2,
@@ -251,21 +223,21 @@ class Player {
     applyPowerup(powerupType) {
         switch(powerupType) {
             case 'FIRE_RATE':
-                this.powerups.fireRate *= 0.85; // Reduz tempo entre tiros (mais rápido)
+                this.powerups.fireRate *= 0.85;
                 this.shootCooldownTime = CONFIG.PLAYER_SHOOT_COOLDOWN * this.powerups.fireRate;
                 break;
             case 'BULLET_SPEED':
-                this.powerups.bulletSpeed *= 1.15; // Aumenta velocidade da bala
+                this.powerups.bulletSpeed *= 1.15;
                 break;
             case 'BULLET_SIZE':
-                this.powerups.bulletSize *= 1.2; // Aumenta tamanho da bala
+                this.powerups.bulletSize *= 1.2;
                 break;
             case 'MOVEMENT_SPEED':
-                this.powerups.moveSpeed *= 1.1; // Aumenta velocidade de movimento
+                this.powerups.moveSpeed *= 1.1;
                 this.speed = CONFIG.PLAYER_SPEED * this.powerups.moveSpeed;
                 break;
             case 'PIERCING':
-                this.powerups.piercing = true; // Ativa perfuração
+                this.powerups.piercing = true;
                 break;
             default:
                 console.warn('Powerup desconhecido:', powerupType);
@@ -277,13 +249,12 @@ class Player {
             this.lives--;
             this.invulnerable = true;
             this.invulnerabilityTime = this.invulnerabilityDuration;
-            return true; // Indica que levou dano
+            return true;
         }
         return false;
     }
     
     draw(ctx) {
-        // Efeito de piscar quando invulnerável
         if (this.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
             ctx.globalAlpha = 0.5;
         }
@@ -291,15 +262,10 @@ class Player {
         if (this.imagesLoaded && this.images[this.direction] && this.images[this.direction].complete) {
             ctx.drawImage(this.images[this.direction], this.x, this.y, this.width, this.height);
         } else {
-            // Fallback: desenha retângulo
             ctx.fillStyle = CONFIG.COLORS.PLAYER;
             ctx.fillRect(this.x, this.y, this.width, this.height);
         }
         
         ctx.globalAlpha = 1.0;
-        
-        // Debug: desenha hitbox
-        // ctx.strokeStyle = 'red';
-        // ctx.strokeRect(this.x, this.y, this.width, this.height);
     }
 }

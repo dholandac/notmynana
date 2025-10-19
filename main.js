@@ -1,11 +1,7 @@
-// main.js - Ponto de entrada do jogo
-
-// Aguarda o carregamento do DOM
 window.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('gameCanvas');
     const game = new Game(canvas);
     
-    // Controle de reiniciar
     window.addEventListener('keydown', (e) => {
         if (e.key.toLowerCase() === 'r' && game.gameOver) {
             game.restart();
@@ -15,7 +11,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Inicia o jogo
     game.start();
     
     console.log('Jogo iniciado!');
