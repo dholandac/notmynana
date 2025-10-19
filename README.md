@@ -13,8 +13,8 @@
 ## Desenvolvimento
 
 Este projeto foi desenvolvido com conhecimentos em **JavaScript** e contou com o auxílio de ferramentas de Inteligência Artificial:
-- **Claude Sonnet 3.5** (Anthropic)
-- **Gemini 2.0 Flash** (Google)
+- **Claude Sonnet 4.5**
+- **Gemini 2.0 Flash**
 
 As IAs foram utilizadas para:
 - Refinamento de código e otimizações
