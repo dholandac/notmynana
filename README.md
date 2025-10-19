@@ -1,4 +1,4 @@
-# Not My Nana 🎮
+# Not My Nana
 
 ## Descrição
 
