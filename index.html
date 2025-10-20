@@ -8,6 +8,7 @@
         html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
             height: 100%;
             overflow: hidden;
         }
@@ -17,16 +18,20 @@
             align-items: center;
             background-color: #1f2429;
             font-family: Arial, sans-serif;
-            padding-top: 60px;
             box-sizing: border-box;
         }
         #gameContainer {
             position: relative;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            overflow: visible;
         }
         canvas {
             display: block;
             background-color: #1f2429;
+            max-width: 100%;
+            max-height: 100%;
         }
         #ui {
             position: absolute;
@@ -51,7 +56,7 @@
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 10;
-            display: none; /* Escondido no menu */
+            display: none;
         }
         #livesDisplay {
             background-color: rgba(0, 0, 0, 0.6);
@@ -67,7 +72,7 @@
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 10;
-            display: none; /* Escondido no menu */
+            display: none;
         }
         #scoreDisplay {
             background-color: rgba(0, 0, 0, 0.6);
@@ -83,7 +88,7 @@
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             z-index: 10;
-            display: none; /* Escondido no menu */
+            display: none;
         }
         #wolvesDisplay {
             background-color: rgba(0, 0, 0, 0.6);
@@ -98,10 +103,12 @@
             transform: translate(-50%, -50%);
             z-index: 15;
             pointer-events: none;
-            display: none; /* Escondido inicialmente, mostra quando o jogo começa */
+            display: none;
+            margin-top: 20px;
         }
         #logo img {
-            width: 200px;
+            width: min(200px, 20vw, 18vh);
+            max-width: 200px;
             height: auto;
             display: block;
         }
@@ -193,6 +200,74 @@
         .menuButton:active {
             transform: scale(0.98);
         }
+        
+        /* Responsividade para dispositivos móveis */
+        @media (max-width: 768px) {
+            #menuScreen {
+                flex-direction: column;
+            }
+            #menuLeft, #menuRight {
+                flex: none;
+                padding: 20px;
+            }
+            #menuLogo {
+                max-width: 250px;
+            }
+            .menuButton {
+                font-size: 18px;
+                padding: 12px 30px;
+                width: 200px;
+            }
+            #ui {
+                font-size: 18px;
+            }
+            #ammoDisplay {
+                padding: 8px 12px;
+            }
+            #lives, #score, #wolves {
+                font-size: 14px;
+            }
+            #livesDisplay, #scoreDisplay, #wolvesDisplay {
+                padding: 4px 8px;
+            }
+            #powerupNotification {
+                font-size: 24px;
+                padding: 15px 30px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .menuButton {
+                font-size: 16px;
+                padding: 10px 25px;
+                width: 180px;
+            }
+            #menuLogo {
+                max-width: 180px;
+            }
+            #ui {
+                font-size: 16px;
+                top: 5px;
+                right: 5px;
+            }
+            #lives, #score, #wolves {
+                font-size: 12px;
+                left: 5px;
+            }
+            #lives {
+                top: 5px;
+            }
+            #score {
+                top: 35px;
+            }
+            #wolves {
+                top: 65px;
+            }
+            #powerupNotification {
+                font-size: 20px;
+                padding: 12px 25px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -212,7 +287,7 @@
         <div id="logo">
             <img src="assets/notmynanalogo.png" alt="Not My Nana Logo">
         </div>
-        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        <canvas id="gameCanvas"></canvas>
         <div id="lives">
             <div id="livesDisplay">❤️ <span id="livesCount">3</span></div>
         </div>
@@ -226,6 +301,7 @@
     </div>
     <script src="config.js"></script>
     <script src="utils.js"></script>
+    <script src="Particle.js"></script>
     <script src="Player.js"></script>
     <script src="Wolf.js"></script>
     <script src="Bullet.js"></script>

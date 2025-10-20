@@ -1,6 +1,10 @@
 const CONFIG = {
-    CANVAS_WIDTH: 1200,
-    CANVAS_HEIGHT: 800,
+    get CANVAS_WIDTH() {
+        return Math.min(window.innerWidth - 40, 1200);
+    },
+    get CANVAS_HEIGHT() {
+        return Math.min(window.innerHeight - 120, 800);
+    },
     
     WORLD_WIDTH: 2400,
     WORLD_HEIGHT: 2400,

@@ -11,6 +11,15 @@ class Wolf {
         
         this.direction = 'dir'; // 'dir' ou 'esq'
         
+        // Animação de morte
+        this.dying = false;
+        this.deathTimer = 0;
+        this.deathDuration = 600; // 600ms de animação
+        this.deathVelocityX = 0;
+        this.deathVelocityY = 0;
+        this.deathRotation = 0;
+        this.deathRotationSpeed = 0;
+        
         // Imagens
         this.images = {};
         this.imagesLoaded = false;
@@ -53,6 +62,28 @@ class Wolf {
     }
     
     update(deltaTime, player, obstacles = []) {
+        // Se está morrendo, atualiza animação de morte
+        if (this.dying) {
+            this.deathTimer += deltaTime;
+            
+            // Movimento de arremesso para trás
+            this.x += this.deathVelocityX;
+            this.y += this.deathVelocityY;
+            
+            // Desacelera gradualmente
+            this.deathVelocityX *= 0.95;
+            this.deathVelocityY *= 0.95;
+            
+            // Rotação
+            this.deathRotation += this.deathRotationSpeed;
+            
+            // Quando a animação termina, marca para remoção
+            if (this.deathTimer >= this.deathDuration) {
+                this.health = -1; // Garante que será removido
+            }
+            return; // Não atualiza movimento normal
+        }
+        
         // Atualiza timer de flash de dano
         if (this.hitFlashTime > 0) {
             this.hitFlashTime -= deltaTime;
@@ -156,16 +187,48 @@ class Wolf {
     takeDamage() {
         this.health--;
         this.hitFlashTime = this.hitFlashDuration; // Ativa o flash de dano
-        return this.health <= 0;
+        
+        // Se morreu, inicia animação de morte
+        if (this.health <= 0) {
+            this.dying = true;
+            this.deathTimer = 0;
+            
+            // Calcula direção oposta ao centro (efeito de arremesso)
+            const angle = Math.random() * Math.PI * 2; // Direção aleatória
+            const force = 3 + Math.random() * 2; // Força aleatória
+            
+            this.deathVelocityX = Math.cos(angle) * force;
+            this.deathVelocityY = Math.sin(angle) * force;
+            
+            // Rotação aleatória
+            this.deathRotationSpeed = (Math.random() - 0.5) * 0.3; // Rotação para esquerda ou direita
+            
+            return true;
+        }
+        
+        return false;
     }
     
     draw(ctx) {
+        ctx.save();
+        
+        // Se está morrendo, aplica transformações de morte
+        if (this.dying) {
+            const progress = this.deathTimer / this.deathDuration;
+            
+            // Translada para o centro do lobo para rotacionar
+            ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
+            ctx.rotate(this.deathRotation);
+            ctx.translate(-(this.x + this.width / 2), -(this.y + this.height / 2));
+            
+            // Fade out
+            ctx.globalAlpha = 1 - progress;
+        }
+        
         // Efeito de flash vermelho quando recebe dano
-        if (this.hitFlashTime > 0) {
-            ctx.save();
+        if (this.hitFlashTime > 0 && !this.dying) {
             ctx.shadowColor = 'red';
             ctx.shadowBlur = 15;
-            ctx.globalAlpha = 1.0;
         }
         
         if (this.imagesLoaded && this.images[this.direction] && this.images[this.direction].complete) {
@@ -176,16 +239,13 @@ class Wolf {
             ctx.fillRect(this.x, this.y, this.width, this.height);
         }
         
-        // Se está com flash de dano, desenha overlay vermelho
-        if (this.hitFlashTime > 0) {
+        // Se está com flash de dano, desenha overlay vermelho (mas não quando está morrendo)
+        if (this.hitFlashTime > 0 && !this.dying) {
             ctx.globalAlpha = 0.4;
             ctx.fillStyle = 'red';
             ctx.fillRect(this.x, this.y, this.width, this.height);
-            ctx.restore();
         }
         
-        // Debug: desenha hitbox
-        // ctx.strokeStyle = 'red';
-        // ctx.strokeRect(this.x, this.y, this.width, this.height);
+        ctx.restore();
     }
 }

@@ -20,6 +20,7 @@ class Game {
         this.lakes = [];
         this.trees = [];
         this.rocks = [];
+        this.particles = []; // Sistema de partículas
         
         // Gera padrão de fundo uma vez só
         this.generateGroundPattern();
@@ -195,6 +196,43 @@ class Game {
             if (valid) {
                 this.trees.push(new Tree(x, y));
             }
+        }
+    }
+    
+    spawnNewTree() {
+        // Spawna uma nova árvore em um local válido
+        let x, y;
+        let attempts = 0;
+        let valid = false;
+        
+        do {
+            x = randomRange(50, CONFIG.WORLD_WIDTH - 50);
+            y = randomRange(50, CONFIG.WORLD_HEIGHT - 50);
+            
+            // Verifica distância do player
+            const distFromPlayer = Math.sqrt(
+                Math.pow(x - this.player.x, 2) + 
+                Math.pow(y - this.player.y, 2)
+            );
+            
+            valid = distFromPlayer > 300; // Não spawna muito perto do player
+            
+            if (valid) {
+                // Verifica se não está em cima de um lago
+                const tree = new Tree(x, y);
+                for (let lake of this.lakes) {
+                    if (lake.isColliding(tree)) {
+                        valid = false;
+                        break;
+                    }
+                }
+            }
+            
+            attempts++;
+        } while (!valid && attempts < 50);
+        
+        if (valid) {
+            this.trees.push(new Tree(x, y));
         }
     }
     
@@ -481,28 +519,31 @@ class Game {
             const obstacles = [...this.lakes, ...this.trees];
             wolf.update(deltaTime, this.player, obstacles);
             
-            // Verifica colisão do lobo com lagos
-            for (let lake of this.lakes) {
-                if (lake.isColliding(wolf)) {
-                    // Reverte posição do lobo
-                    wolf.x = prevWolfX;
-                    wolf.y = prevWolfY;
-                    break;
+            // Apenas verifica colisões se o lobo não está morrendo
+            if (!wolf.dying) {
+                // Verifica colisão do lobo com lagos
+                for (let lake of this.lakes) {
+                    if (lake.isColliding(wolf)) {
+                        // Reverte posição do lobo
+                        wolf.x = prevWolfX;
+                        wolf.y = prevWolfY;
+                        break;
+                    }
+                }
+                
+                // Verifica colisão do lobo com árvores
+                for (let tree of this.trees) {
+                    if (tree.isColliding(wolf)) {
+                        // Reverte posição do lobo
+                        wolf.x = prevWolfX;
+                        wolf.y = prevWolfY;
+                        break;
+                    }
                 }
             }
             
-            // Verifica colisão do lobo com árvores
-            for (let tree of this.trees) {
-                if (tree.isColliding(wolf)) {
-                    // Reverte posição do lobo
-                    wolf.x = prevWolfX;
-                    wolf.y = prevWolfY;
-                    break;
-                }
-            }
-            
-            // Verifica colisão com jogador
-            if (checkCollision(
+            // Verifica colisão com jogador (apenas se o lobo não está morrendo)
+            if (!wolf.dying && checkCollision(
                 { x: wolf.x, y: wolf.y, width: wolf.width, height: wolf.height },
                 { x: this.player.x, y: this.player.y, width: this.player.width, height: this.player.height }
             )) {
@@ -515,27 +556,80 @@ class Game {
             }
         });
         
-        // Remove lobos mortos
-        this.wolves = this.wolves.filter(wolf => wolf.health > 0);
+        // Remove lobos mortos (apenas após a animação de morte completar)
+        this.wolves = this.wolves.filter(wolf => {
+            // Remove se health < 0 (animação de morte terminou)
+            if (wolf.health < 0) return false;
+            // Mantém se está vivo ou morrendo (mas ainda com health >= 0)
+            return true;
+        });
         
         // Atualiza projéteis
         this.bullets.forEach(bullet => {
             bullet.update(deltaTime);
             
+            // Verifica colisão com árvores
+            this.trees.forEach(tree => {
+                const bulletBounds = bullet.getBounds();
+                if (tree.isColliding(bulletBounds) && bullet.active) {
+                    // Cria partículas na posição da colisão
+                    const particles = createTreeHitParticles(bullet.x, bullet.y, false);
+                    this.particles.push(...particles);
+                    
+                    // Dá dano na árvore
+                    if (tree.takeDamage()) {
+                        // Árvore foi destruída - cria mais partículas
+                        const destroyParticles = createTreeHitParticles(
+                            tree.x + tree.width / 2, 
+                            tree.y + tree.height / 2,
+                            true // Partículas de destruição
+                        );
+                        this.particles.push(...destroyParticles);
+                        
+                        // Spawna uma nova árvore em outro lugar
+                        this.spawnNewTree();
+                    }
+                    
+                    bullet.active = false; // Balas param ao colidir com árvores
+                }
+            });
+            
             // Verifica colisão com lobos
-            if (bullet.owner === 'player') {
+            if (bullet.owner === 'player' && bullet.active) {
                 this.wolves.forEach(wolf => {
                     const bulletBounds = bullet.getBounds();
-                    if (checkCollision(bulletBounds, wolf)) {
+                    // Verifica se pode atingir este inimigo (para balas perfurantes)
+                    if (bullet.canHitEnemy(wolf) && checkCollision(bulletBounds, wolf)) {
                         if (wolf.takeDamage()) {
                             this.score += 10;
                             this.wolvesKilled++;
                         }
-                        bullet.active = false;
+                        // Marca que atingiu este inimigo
+                        bullet.markEnemyHit(wolf);
+                        // Só desativa a bala se NÃO for perfurante
+                        if (!bullet.piercing) {
+                            bullet.active = false;
+                        }
                     }
                 });
             }
         });
+        
+        // Atualiza árvores (para animação de quebra)
+        this.trees.forEach(tree => {
+            tree.update(deltaTime);
+        });
+        
+        // Remove árvores destruídas
+        this.trees = this.trees.filter(tree => tree.active);
+        
+        // Atualiza partículas
+        this.particles.forEach(particle => {
+            particle.update(deltaTime);
+        });
+        
+        // Remove partículas inativas
+        this.particles = this.particles.filter(particle => particle.active);
         
         // Remove projéteis inativos
         this.bullets = this.bullets.filter(bullet => bullet.active);
@@ -607,6 +701,9 @@ class Game {
         // Desenha projéteis (não desenha no menu)
         if (!this.inMenu) {
             this.bullets.forEach(bullet => bullet.draw(this.ctx));
+            
+            // Desenha partículas
+            this.particles.forEach(particle => particle.draw(this.ctx));
         }
         
         // Desenha lobos ou lobos decorativos

@@ -11,6 +11,18 @@ class Tree {
         this.crownRadius = 25;
         this.type = 'tree';
         
+        // Sistema de vida
+        this.health = 5;
+        this.maxHealth = 5;
+        this.active = true;
+        
+        // Animação de destruição
+        this.breaking = false;
+        this.breakTimer = 0;
+        this.breakDuration = 800; // 800ms para a animação
+        this.fallRotation = 0;
+        this.fallDirection = Math.random() > 0.5 ? 1 : -1; // Cai para direita ou esquerda
+        
         // Variação visual
         this.crownColor1 = this.randomGreen();
         this.crownColor2 = this.randomDarkGreen();
@@ -27,7 +39,38 @@ class Tree {
         return darkGreens[Math.floor(Math.random() * darkGreens.length)];
     }
     
+    takeDamage() {
+        if (this.breaking) return false;
+        
+        this.health--;
+        if (this.health <= 0) {
+            this.breaking = true;
+            return true; // Árvore foi destruída
+        }
+        return false; // Árvore ainda está de pé
+    }
+    
+    update(deltaTime) {
+        if (this.breaking) {
+            this.breakTimer += deltaTime;
+            
+            // Progresso da animação (0 a 1)
+            const progress = Math.min(this.breakTimer / this.breakDuration, 1);
+            
+            // Rotação aumenta até 90 graus
+            this.fallRotation = progress * Math.PI / 2 * this.fallDirection;
+            
+            // Quando a animação termina, marca como inativa
+            if (progress >= 1) {
+                this.active = false;
+            }
+        }
+    }
+    
     isColliding(entity) {
+        // Não colide se está quebrando
+        if (this.breaking) return false;
+        
         // Colisão apenas com o tronco (mais realista)
         const trunkX = this.x + (this.width - this.trunkWidth) / 2;
         const trunkY = this.y + this.height - this.trunkHeight;
@@ -42,17 +85,32 @@ class Tree {
         ctx.save();
         
         const time = Date.now() / 1000;
-        const sway = Math.sin(time + this.swayOffset) * 2; // Balanço sutil
-        
         const centerX = this.x + this.width / 2;
         const trunkY = this.y + this.height - this.trunkHeight;
-        const crownY = this.y + this.height - this.trunkHeight - this.crownRadius + 10; // +10 para descer as folhas
+        const crownY = this.y + this.height - this.trunkHeight - this.crownRadius + 10;
+        
+        // Se está quebrando, aplica transformação de rotação
+        if (this.breaking) {
+            const progress = this.breakTimer / this.breakDuration;
+            
+            // Translada para o ponto de pivô (base do tronco)
+            ctx.translate(centerX, this.y + this.height);
+            ctx.rotate(this.fallRotation);
+            ctx.translate(-centerX, -(this.y + this.height));
+            
+            // Fade out
+            ctx.globalAlpha = 1 - progress * 0.5; // Transparência gradual
+        }
+        
+        const sway = this.breaking ? 0 : Math.sin(time + this.swayOffset) * 2; // Sem balanço ao quebrar
         
         // Sombra da árvore
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.beginPath();
-        ctx.ellipse(centerX + 3, this.y + this.height + 2, this.width / 2, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (!this.breaking) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.beginPath();
+            ctx.ellipse(centerX + 3, this.y + this.height + 2, this.width / 2, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         // Tronco
         ctx.fillStyle = '#4a3728';
@@ -103,10 +161,5 @@ class Tree {
         ctx.fill();
         
         ctx.restore();
-        
-        // Debug: desenha hitbox do tronco
-        // const trunkHitboxX = centerX - this.trunkWidth / 2;
-        // ctx.strokeStyle = 'red';
-        // ctx.strokeRect(trunkHitboxX, trunkY, this.trunkWidth, this.trunkHeight);
     }
 }

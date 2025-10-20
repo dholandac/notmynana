@@ -8,6 +8,25 @@ class Lake {
         
         // Calcula bounding box para colisões rápidas
         this.calculateBounds();
+        
+        // Posições dos droplets (geradas aleatoriamente)
+        this.dropletPositions = [];
+        this.lastDropletChange = 0; // Tempo da última mudança de posição
+        this.initializeDroplets();
+    }
+    
+    initializeDroplets() {
+        // Limpa posições anteriores e cria novas posições aleatórias para os droplets
+        this.dropletPositions = [];
+        const dropletCount = Math.min(1, Math.floor(this.segments.length / 4)); // Reduzido para 1 droplet
+        for (let i = 0; i < dropletCount; i++) {
+            this.dropletPositions.push({
+                segmentIndex: Math.floor(Math.random() * this.segments.length),
+                offsetX: Math.random(),
+                offsetY: Math.random(),
+                phase: Math.random() * 10 // Fase inicial aleatória
+            });
+        }
     }
     
     calculateBounds() {
@@ -45,6 +64,13 @@ class Lake {
         const centerX = this.bounds.x + this.bounds.width / 2;
         const centerY = this.bounds.y + this.bounds.height / 2;
         
+        // Define a região de clipping (os efeitos só aparecem dentro do lago)
+        ctx.beginPath();
+        this.segments.forEach(seg => {
+            ctx.rect(seg.x, seg.y, seg.width, seg.height);
+        });
+        ctx.clip(); // Aplica o clipping
+        
         // Desenha os segmentos preenchidos
         ctx.beginPath();
         this.segments.forEach(seg => {
@@ -64,8 +90,8 @@ class Lake {
         ctx.fillStyle = gradient;
         ctx.fill();
         
-        // Efeito de brilho na água (sem sombra)
-        ctx.globalAlpha = 0.3;
+        // Efeito de brilho na água
+        ctx.globalAlpha = 0.4;
         const highlightGradient = ctx.createRadialGradient(
             centerX - this.bounds.width * 0.2,
             centerY - this.bounds.height * 0.2,
@@ -74,7 +100,7 @@ class Lake {
             centerY,
             Math.max(this.bounds.width, this.bounds.height) / 3
         );
-        highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
         highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         
         ctx.fillStyle = highlightGradient;
@@ -85,38 +111,67 @@ class Lake {
         ctx.fill();
         ctx.globalAlpha = 1;
         
-        // Efeito de ondulação animada (alguns círculos)
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        // Ondulações animadas - círculos concêntricos expandindo (mais raros)
+        const time = Date.now() / 1000;
+        
+        // Muda a posição dos droplets periodicamente (a cada 10 segundos)
+        if (time - this.lastDropletChange > 10) {
+            this.lastDropletChange = time;
+            this.initializeDroplets();
+        }
+        
+        for (let i = 0; i < this.dropletPositions.length; i++) {
+            const droplet = this.dropletPositions[i];
+            const segment = this.segments[droplet.segmentIndex];
+            
+            // Verifica se o segmento existe
+            if (!segment) continue;
+            
+            // Posição baseada nos offsets aleatórios (dentro dos limites do segmento)
+            const baseX = segment.x + segment.width * droplet.offsetX;
+            const baseY = segment.y + segment.height * droplet.offsetY;
+            
+            // Pequeno movimento adicional para vida (reduzido para não sair dos limites)
+            const offsetX = Math.sin(time * 0.2 + droplet.phase) * 5;
+            const offsetY = Math.cos(time * 0.2 + droplet.phase + 1) * 5;
+            
+            // Cria 3 círculos concêntricos para cada ondinha
+            for (let ring = 0; ring < 3; ring++) {
+                const phase = (time * 0.8 + droplet.phase + ring * 0.5) % 3; // Ciclo mais longo (3 ao invés de 2)
+                const radius = 5 + phase * 15;
+                const alpha = Math.max(0, 0.5 - phase * 0.15);
+                
+                ctx.strokeStyle = `rgba(200, 220, 255, ${alpha})`;
+                ctx.lineWidth = 2 - phase * 0.5;
+                
+                ctx.beginPath();
+                ctx.arc(baseX + offsetX, baseY + offsetY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        // Linhas onduladas na superfície da água
+        ctx.strokeStyle = 'rgba(180, 210, 240, 0.3)';
         ctx.lineWidth = 1.5;
         
-        const time = Date.now() / 2000;
-        const rippleCount = Math.max(2, Math.floor(this.segments.length / 2));
-        
-        for (let i = 0; i < rippleCount; i++) {
-            const segment = this.segments[i % this.segments.length];
-            const offsetX = (Math.sin(time + i) * 15) + segment.width * 0.5;
-            const offsetY = (Math.cos(time + i * 1.3) * 15) + segment.height * 0.5;
-            const radius = 8 + Math.sin(time * 2 + i * 2) * 4;
-            
+        for (let i = 0; i < 4; i++) {
             ctx.beginPath();
-            ctx.arc(segment.x + offsetX, segment.y + offsetY, radius, 0, Math.PI * 2);
+            const waveTime = time + i * 0.5;
+            const startX = this.bounds.x;
+            const endX = this.bounds.x + this.bounds.width;
+            const baseY = this.bounds.y + (this.bounds.height / 5) * (i + 1);
+            
+            for (let x = startX; x <= endX; x += 10) {
+                const offset = Math.sin((x - startX) * 0.05 + waveTime * 2) * 5;
+                if (x === startX) {
+                    ctx.moveTo(x, baseY + offset);
+                } else {
+                    ctx.lineTo(x, baseY + offset);
+                }
+            }
             ctx.stroke();
         }
         
         ctx.restore();
-    }
-    
-    roundRect(ctx, x, y, width, height, radius) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
     }
 }
