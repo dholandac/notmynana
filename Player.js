@@ -35,6 +35,10 @@ class Player {
         this.invulnerable = false;
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = 2000;
+        
+        // Sistema de partículas de movimento
+        this.movementParticleTimer = 0;
+        this.movementParticleRate = 100; // Cria partículas a cada 100ms quando se move
     }
     
     loadImages() {
@@ -81,6 +85,11 @@ class Player {
             if (this.invulnerabilityTime <= 0) {
                 this.invulnerable = false;
             }
+        }
+        
+        // Atualiza timer de partículas de movimento
+        if (this.movementParticleTimer > 0) {
+            this.movementParticleTimer -= deltaTime;
         }
         
         if (this.keys[' ']) {
@@ -153,7 +162,21 @@ class Player {
         this.x = clamp(this.x, 0, CONFIG.WORLD_WIDTH - this.width);
         this.y = clamp(this.y, 0, CONFIG.WORLD_HEIGHT - this.height);
         
-        return null;
+        // Retorna array de partículas se está se movendo e é hora de criar
+        if (moving && this.movementParticleTimer <= 0) {
+            this.movementParticleTimer = this.movementParticleRate;
+            // Retorna objeto com bullet e particles
+            return { bullet: null, particles: this.createFootParticles() };
+        }
+        
+        return { bullet: null, particles: [] };
+    }
+    
+    createFootParticles() {
+        // Cria partículas nos pés do personagem
+        const footX = this.x + this.width / 2;
+        const footY = this.y + this.height - 5; // Perto da base
+        return createMovementParticles(footX, footY, CONFIG.COLORS.GROUND);
     }
     
     shoot() {
@@ -215,9 +238,9 @@ class Player {
                 this.powerups
             );
             
-            return bullet;
+            return { bullet: bullet, particles: [] };
         }
-        return null;
+        return { bullet: null, particles: [] };
     }
     
     applyPowerup(powerupType) {

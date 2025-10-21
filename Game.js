@@ -14,6 +14,7 @@ class Game {
         // Entidades
         this.player = new Player(CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2);
         this.wolves = [];
+        this.bossWolf = null; // Boss wolf atual (só pode haver um)
         this.decorativeWolves = []; // Lobos decorativos para o menu
         this.bullets = [];
         this.crates = [];
@@ -40,6 +41,11 @@ class Game {
         // Score
         this.score = 0;
         this.wolvesKilled = 0;
+        this.bossSpawned = false; // Flag para controlar se o boss já foi spawnado
+        
+        // Boss notification
+        this.bossNotificationTimer = 0;
+        this.bossNotificationDuration = 3000; // 3 segundos
         
         // Feedback visual de dano do jogador
         this.damageFlashTime = 0;
@@ -415,6 +421,39 @@ class Game {
         this.wolves.push(new Wolf(x, y));
     }
     
+    spawnBoss() {
+        if (this.bossWolf) return; // Já existe um boss
+        
+        // Spawna o boss em uma das bordas do mapa
+        let x, y;
+        const side = randomInt(0, 3); // 0=cima, 1=direita, 2=baixo, 3=esquerda
+        
+        switch(side) {
+            case 0: // Cima
+                x = randomRange(0, CONFIG.WORLD_WIDTH);
+                y = randomRange(-100, -50);
+                break;
+            case 1: // Direita
+                x = randomRange(CONFIG.WORLD_WIDTH + 50, CONFIG.WORLD_WIDTH + 100);
+                y = randomRange(0, CONFIG.WORLD_HEIGHT);
+                break;
+            case 2: // Baixo
+                x = randomRange(0, CONFIG.WORLD_WIDTH);
+                y = randomRange(CONFIG.WORLD_HEIGHT + 50, CONFIG.WORLD_HEIGHT + 100);
+                break;
+            case 3: // Esquerda
+                x = randomRange(-100, -50);
+                y = randomRange(0, CONFIG.WORLD_HEIGHT);
+                break;
+        }
+        
+        this.bossWolf = new BossWolf(x, y);
+        this.bossSpawned = true;
+        this.bossNotificationTimer = this.bossNotificationDuration;
+        
+        console.log('Boss Wolf spawnou!');
+    }
+    
     setupMenuControls() {
         const playButton = document.getElementById('playButton');
         const instructionsButton = document.getElementById('instructionsButton');
@@ -480,10 +519,13 @@ class Game {
         const prevX = this.player.x;
         const prevY = this.player.y;
         
-        // Atualiza jogador e verifica se criou um bullet
-        const newBullet = this.player.update(deltaTime);
-        if (newBullet) {
-            this.bullets.push(newBullet);
+        // Atualiza jogador e verifica se criou um bullet e/ou partículas
+        const playerResult = this.player.update(deltaTime);
+        if (playerResult.bullet) {
+            this.bullets.push(playerResult.bullet);
+        }
+        if (playerResult.particles && playerResult.particles.length > 0) {
+            this.particles.push(...playerResult.particles);
         }
         
         // Verifica colisão com lagos
@@ -515,26 +557,27 @@ class Game {
             const prevWolfX = wolf.x;
             const prevWolfY = wolf.y;
             
-            // Passa obstáculos para a IA do lobo
+            // Passa obstáculos para a IA do lobo e coleta partículas
             const obstacles = [...this.lakes, ...this.trees];
-            wolf.update(deltaTime, this.player, obstacles);
+            const wolfParticles = wolf.update(deltaTime, this.player, obstacles);
+            if (wolfParticles && wolfParticles.length > 0) {
+                this.particles.push(...wolfParticles);
+            }
             
             // Apenas verifica colisões se o lobo não está morrendo
             if (!wolf.dying) {
-                // Verifica colisão do lobo com lagos
+                // Verifica colisão do lobo com lagos - apenas reverte
                 for (let lake of this.lakes) {
                     if (lake.isColliding(wolf)) {
-                        // Reverte posição do lobo
                         wolf.x = prevWolfX;
                         wolf.y = prevWolfY;
                         break;
                     }
                 }
                 
-                // Verifica colisão do lobo com árvores
+                // Verifica colisão do lobo com árvores - apenas reverte
                 for (let tree of this.trees) {
                     if (tree.isColliding(wolf)) {
-                        // Reverte posição do lobo
                         wolf.x = prevWolfX;
                         wolf.y = prevWolfY;
                         break;
@@ -563,6 +606,76 @@ class Game {
             // Mantém se está vivo ou morrendo (mas ainda com health >= 0)
             return true;
         });
+        
+        // Atualiza boss wolf
+        if (this.bossWolf) {
+            const prevBossX = this.bossWolf.x;
+            const prevBossY = this.bossWolf.y;
+            
+            // Passa obstáculos e callback para destruir árvores
+            const obstacles = [...this.lakes, ...this.trees];
+            const bossParticles = this.bossWolf.update(deltaTime, this.player, obstacles, (tree) => {
+                // Callback quando boss destrói uma árvore
+                if (tree.active) {
+                    tree.active = false;
+                    // Cria partículas de destruição
+                    const destroyParticles = createTreeHitParticles(
+                        tree.x + tree.width / 2, 
+                        tree.y + tree.height / 2,
+                        true // Partículas de destruição
+                    );
+                    this.particles.push(...destroyParticles);
+                    
+                    // Spawna uma nova árvore em outro lugar
+                    this.spawnNewTree();
+                }
+            });
+            
+            // Adiciona partículas de movimento do boss
+            if (bossParticles && bossParticles.length > 0) {
+                this.particles.push(...bossParticles);
+            }
+            
+            // Boss apenas verifica colisão com lagos (ignora árvores)
+            if (!this.bossWolf.dying) {
+                for (let lake of this.lakes) {
+                    if (lake.isColliding(this.bossWolf)) {
+                        this.bossWolf.x = prevBossX;
+                        this.bossWolf.y = prevBossY;
+                        break;
+                    }
+                }
+            }
+            
+            // Verifica colisão com jogador
+            if (!this.bossWolf.dying && checkCollision(
+                { x: this.bossWolf.x, y: this.bossWolf.y, width: this.bossWolf.width, height: this.bossWolf.height },
+                { x: this.player.x, y: this.player.y, width: this.player.width, height: this.player.height }
+            )) {
+                if (this.player.takeDamage()) {
+                    this.damageFlashTime = this.damageFlashDuration;
+                    if (this.player.lives <= 0) {
+                        this.gameOver = true;
+                    }
+                }
+            }
+            
+            // Remove boss se morreu
+            if (this.bossWolf.health < 0) {
+                this.bossWolf = null;
+                this.bossSpawned = false; // Permite spawnar outro boss futuramente
+            }
+        }
+        
+        // Atualiza timer de notificação do boss
+        if (this.bossNotificationTimer > 0) {
+            this.bossNotificationTimer -= deltaTime;
+        }
+        
+        // Verifica se deve spawnar o boss
+        if (!this.bossSpawned && this.wolvesKilled >= CONFIG.BOSS_SPAWN_KILLS) {
+            this.spawnBoss();
+        }
         
         // Atualiza projéteis
         this.bullets.forEach(bullet => {
@@ -612,6 +725,24 @@ class Game {
                         }
                     }
                 });
+                
+                // Verifica colisão com boss wolf
+                if (this.bossWolf && !this.bossWolf.dying) {
+                    const bulletBounds = bullet.getBounds();
+                    if (bullet.canHitEnemy(this.bossWolf) && checkCollision(bulletBounds, this.bossWolf)) {
+                        if (this.bossWolf.takeDamage()) {
+                            // Boss morreu - pontuação maior!
+                            this.score += 100;
+                            this.wolvesKilled += 5; // Conta como 5 lobos
+                        }
+                        // Marca que atingiu o boss
+                        bullet.markEnemyHit(this.bossWolf);
+                        // Só desativa a bala se NÃO for perfurante
+                        if (!bullet.piercing) {
+                            bullet.active = false;
+                        }
+                    }
+                }
             }
         });
         
@@ -711,6 +842,11 @@ class Game {
             this.decorativeWolves.forEach(wolf => wolf.draw(this.ctx));
         } else {
             this.wolves.forEach(wolf => wolf.draw(this.ctx));
+            
+            // Desenha boss wolf
+            if (this.bossWolf) {
+                this.bossWolf.draw(this.ctx);
+            }
         }
         
         // Desenha jogador (não desenha no menu)
@@ -886,6 +1022,65 @@ class Game {
             this.ctx.fillStyle = gradient;
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
+        
+        // Notificação de spawn do boss
+        if (this.bossNotificationTimer > 0) {
+            const alpha = Math.min(1, this.bossNotificationTimer / 1000); // Fade in/out
+            
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha;
+            
+            // Fundo escuro
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(0, this.canvas.height / 2 - 80, this.canvas.width, 160);
+            
+            // Texto do boss
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.font = 'bold 48px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = 'black';
+            this.ctx.shadowBlur = 10;
+            this.ctx.fillText('⚠️ BOSS WOLF APARECEU! ⚠️', this.canvas.width / 2, this.canvas.height / 2);
+            
+            this.ctx.restore();
+        }
+        
+        // Barra de vida do boss
+        if (this.bossWolf && !this.bossWolf.dying) {
+            const barWidth = 400;
+            const barHeight = 30;
+            const barX = (this.canvas.width - barWidth) / 2;
+            const barY = 85; // Movido para 80
+            
+            // Fundo da barra
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(barX - 5, barY - 5, barWidth + 10, barHeight + 10);
+            
+            // Barra vermelha (fundo)
+            this.ctx.fillStyle = '#330000';
+            this.ctx.fillRect(barX, barY, barWidth, barHeight);
+            
+            // Barra de vida (preenchimento)
+            const healthPercent = this.bossWolf.health / this.bossWolf.maxHealth;
+            this.ctx.fillStyle = '#ff0000';
+            this.ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+            
+            // Borda
+            this.ctx.strokeStyle = '#ff6600';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+            
+            // Texto
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = 'bold 16px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = 'black';
+            this.ctx.shadowBlur = 5;
+            this.ctx.fillText(`BOSS WOLF - ${this.bossWolf.health}/${this.bossWolf.maxHealth}`, this.canvas.width / 2, barY + barHeight / 2);
+            this.ctx.shadowBlur = 0;
+        }
     }
     
     drawGameOver() {
@@ -961,6 +1156,9 @@ class Game {
     restart() {
         this.player = new Player(CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2);
         this.wolves = [];
+        this.bossWolf = null;
+        this.bossSpawned = false;
+        this.bossNotificationTimer = 0;
         this.bullets = [];
         this.crates = [];
         this.lakes = [];
@@ -977,6 +1175,9 @@ class Game {
         // Reseta o jogo
         this.player = new Player(CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2);
         this.wolves = [];
+        this.bossWolf = null;
+        this.bossSpawned = false;
+        this.bossNotificationTimer = 0;
         this.bullets = [];
         this.crates = [];
         this.score = 0;
@@ -1004,7 +1205,10 @@ class Game {
         const deltaTime = currentTime - this.lastTime;
         this.lastTime = currentTime;
         
-        this.update(deltaTime);
+        // Cap em 100ms para evitar grandes saltos (ex: quando minimiza a janela)
+        const cappedDeltaTime = Math.min(deltaTime, 100);
+        
+        this.update(cappedDeltaTime);
         this.draw();
         
         requestAnimationFrame((time) => this.gameLoop(time));

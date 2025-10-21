@@ -69,3 +69,47 @@ function createTreeHitParticles(x, y, isDestroyed = false) {
     
     return particles;
 }
+
+// Função para criar partículas de movimento (poeira dos pés)
+function createMovementParticles(x, y, groundColor = '#6b8e6b') {
+    const particles = [];
+    const particleCount = 2 + Math.floor(Math.random() * 2); // 2-3 partículas
+    
+    for (let i = 0; i < particleCount; i++) {
+        // Usa a cor do chão com leve variação (mais claras para contraste)
+        const brightness = 1.2 + Math.random() * 0.3; // 1.2 a 1.5 (mais claras)
+        const color = adjustColorBrightness(groundColor, brightness);
+        
+        // Velocidade pequena em direções aleatórias (mais para os lados)
+        const angle = (Math.random() - 0.5) * Math.PI * 0.8; // Menos espalhamento
+        const speed = 0.3 + Math.random() * 0.5; // Velocidade reduzida
+        const velocityX = Math.cos(angle) * speed;
+        const velocityY = Math.sin(angle) * speed - 0.3; // Menos movimento para cima
+        
+        const size = 2 + Math.random() * 2; // Partículas médias (2-4px)
+        const lifetime = 200 + Math.random() * 150; // 200-350ms (duração curta)
+        
+        particles.push(new Particle(x, y, color, velocityX, velocityY, size, lifetime));
+    }
+    
+    return particles;
+}
+
+// Função auxiliar para ajustar brilho de uma cor hex
+function adjustColorBrightness(hexColor, factor) {
+    // Remove o # se existir
+    hexColor = hexColor.replace('#', '');
+    
+    // Converte para RGB
+    const r = parseInt(hexColor.substring(0, 2), 16);
+    const g = parseInt(hexColor.substring(2, 4), 16);
+    const b = parseInt(hexColor.substring(4, 6), 16);
+    
+    // Ajusta brilho
+    const newR = Math.min(255, Math.floor(r * factor));
+    const newG = Math.min(255, Math.floor(g * factor));
+    const newB = Math.min(255, Math.floor(b * factor));
+    
+    // Converte de volta para hex
+    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+}

@@ -30,7 +30,7 @@ const CONFIG = {
     
     CRATE_WIDTH: 40,
     CRATE_HEIGHT: 40,
-    CRATE_COUNT: 8,
+    CRATE_COUNT: 4, // Reduzido para tornar mais raro
     
     POWERUPS: {
         FIRE_RATE: 'FIRE_RATE',
@@ -47,6 +47,13 @@ const CONFIG = {
     TREE_COUNT: 40,
     
     ROCK_COUNT: 80,
+    
+    // Configurações do Boss
+    BOSS_SPAWN_KILLS: 20, // Aparece após 20 lobos mortos
+    BOSS_WIDTH: 60, // Maior que lobo normal
+    BOSS_HEIGHT: 75,
+    BOSS_SPEED: 1.8, // Mais devagar que lobo normal
+    BOSS_HEALTH: 50, // Muita vida
     
     COLORS: {
         BACKGROUND: '#5a7c5a',
