@@ -45,6 +45,12 @@ class BossWolf {
         // Destruição de árvores
         this.treeDestructionCooldown = 0;
         this.treeDestructionRate = 100; // ms entre destruições
+        
+        // Sistema de pulinhos ao andar
+        this.bounceTimer = 0;
+        this.bounceSpeed = 9; // Boss pula mais devagar (mais pesado)
+        this.bounceHeight = 8; // Boss pula mais alto (é maior)
+        this.bounceOffset = 0; // Offset vertical atual
     }
     
     loadImages() {
@@ -108,6 +114,10 @@ class BossWolf {
         if (this.treeDestructionCooldown > 0) {
             this.treeDestructionCooldown -= deltaTime;
         }
+        
+        // Atualiza animação de pulinhos (sempre está andando/pulando quando está vivo)
+        this.bounceTimer += deltaTime / 1000; // Converte para segundos
+        this.bounceOffset = Math.abs(Math.sin(this.bounceTimer * this.bounceSpeed)) * this.bounceHeight;
         
         // Calcula distância até o jogador
         const dx = player.x - this.x;
@@ -263,19 +273,22 @@ class BossWolf {
             ctx.shadowBlur = 25;
         }
         
+        // Aplica o offset de pulinhos (somente se não está morrendo)
+        const drawY = this.dying ? this.y : this.y - this.bounceOffset;
+        
         if (this.imagesLoaded && this.images[this.direction] && this.images[this.direction].complete) {
-            ctx.drawImage(this.images[this.direction], this.x, this.y, this.width, this.height);
+            ctx.drawImage(this.images[this.direction], this.x, drawY, this.width, this.height);
         } else {
             // Fallback: desenha retângulo maior e mais escuro
             ctx.fillStyle = '#5a3a1a'; // Marrom mais escuro para boss
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(this.x, drawY, this.width, this.height);
         }
         
         // Se está com flash de dano, desenha overlay vermelho
         if (this.hitFlashTime > 0 && !this.dying) {
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = 'red';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(this.x, drawY, this.width, this.height);
         }
         
         ctx.restore();

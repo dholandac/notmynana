@@ -717,12 +717,8 @@ class Game {
                             this.score += 10;
                             this.wolvesKilled++;
                         }
-                        // Marca que atingiu este inimigo
+                        // Marca que atingiu este inimigo (método markEnemyHit controla se a bala desativa)
                         bullet.markEnemyHit(wolf);
-                        // Só desativa a bala se NÃO for perfurante
-                        if (!bullet.piercing) {
-                            bullet.active = false;
-                        }
                     }
                 });
                 
@@ -735,12 +731,8 @@ class Game {
                             this.score += 100;
                             this.wolvesKilled += 5; // Conta como 5 lobos
                         }
-                        // Marca que atingiu o boss
+                        // Marca que atingiu o boss (método markEnemyHit controla se a bala desativa)
                         bullet.markEnemyHit(this.bossWolf);
-                        // Só desativa a bala se NÃO for perfurante
-                        if (!bullet.piercing) {
-                            bullet.active = false;
-                        }
                     }
                 }
             }
@@ -1107,6 +1099,23 @@ class Game {
         document.getElementById('livesCount').textContent = this.player.lives;
         document.getElementById('scoreCount').textContent = this.score;
         document.getElementById('wolvesCount').textContent = this.wolvesKilled;
+        
+        // Atualiza barra de cooldown do dash (apenas se não estiver no menu e não for game over)
+        if (!this.inMenu && !this.gameOver) {
+            const cooldownPercent = this.player.getDashCooldownPercent();
+            const dashBar = document.getElementById('dashCooldownBar');
+            const dashContainer = document.getElementById('dashCooldownContainer');
+            
+            if (cooldownPercent > 0) {
+                dashContainer.style.display = 'block';
+                dashBar.style.width = cooldownPercent + '%';
+            } else {
+                dashContainer.style.display = 'none';
+            }
+        } else {
+            // Esconde a barra quando está no menu ou game over
+            document.getElementById('dashCooldownContainer').style.display = 'none';
+        }
     }
     
     showPowerupNotification(powerupType) {
@@ -1117,7 +1126,10 @@ class Game {
             'BULLET_SPEED': { text: '➤ VELOCIDADE DE BALA +', color: '#44ffff' },
             'BULLET_SIZE': { text: '● TAMANHO DE BALA +', color: '#ffff44' },
             'MOVEMENT_SPEED': { text: '↑ VELOCIDADE +', color: '#44ff44' },
-            'PIERCING': { text: '◆ BALAS PERFURANTES!', color: '#ff44ff' }
+            'PIERCING': { 
+                text: `◆ PERFURAÇÃO NÍVEL ${this.player.powerups.piercing}!`, 
+                color: '#ff44ff' 
+            }
         };
         
         const info = powerupInfo[powerupType];
@@ -1193,6 +1205,7 @@ class Game {
         document.getElementById('lives').style.display = 'none';
         document.getElementById('score').style.display = 'none';
         document.getElementById('wolves').style.display = 'none';
+        document.getElementById('dashCooldownContainer').style.display = 'none';
         
         // Respawna lobos decorativos
         this.decorativeWolves = [];
