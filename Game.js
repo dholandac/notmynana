@@ -22,6 +22,7 @@ class Game {
         this.trees = [];
         this.rocks = [];
         this.particles = []; // Sistema de partículas
+        this.coins = []; // Sistema de moedas
         
         // Gera padrão de fundo uma vez só
         this.generateGroundPattern();
@@ -421,6 +422,22 @@ class Game {
         this.wolves.push(new Wolf(x, y));
     }
     
+    spawnCoins(x, y, minCoins, maxCoins) {
+        // Spawna moedas em posições aleatórias ao redor do ponto de morte
+        const coinCount = randomInt(minCoins, maxCoins);
+        
+        for (let i = 0; i < coinCount; i++) {
+            // Espalha as moedas em um círculo ao redor do ponto
+            const angle = (Math.PI * 2 / coinCount) * i + Math.random() * 0.5;
+            const distance = 20 + Math.random() * 30;
+            const coinX = x + Math.cos(angle) * distance;
+            const coinY = y + Math.sin(angle) * distance;
+            
+            this.coins.push(new Coin(coinX, coinY));
+        }
+    }
+
+    
     spawnBoss() {
         if (this.bossWolf) return; // Já existe um boss
         
@@ -714,7 +731,8 @@ class Game {
                     // Verifica se pode atingir este inimigo (para balas perfurantes)
                     if (bullet.canHitEnemy(wolf) && checkCollision(bulletBounds, wolf)) {
                         if (wolf.takeDamage()) {
-                            this.score += 10;
+                            // Lobo morreu - dropa moedas
+                            this.spawnCoins(wolf.x + wolf.width / 2, wolf.y + wolf.height / 2, 2, 3);
                             this.wolvesKilled++;
                         }
                         // Marca que atingiu este inimigo (método markEnemyHit controla se a bala desativa)
@@ -727,8 +745,8 @@ class Game {
                     const bulletBounds = bullet.getBounds();
                     if (bullet.canHitEnemy(this.bossWolf) && checkCollision(bulletBounds, this.bossWolf)) {
                         if (this.bossWolf.takeDamage()) {
-                            // Boss morreu - pontuação maior!
-                            this.score += 100;
+                            // Boss morreu - dropa mais moedas!
+                            this.spawnCoins(this.bossWolf.x + this.bossWolf.width / 2, this.bossWolf.y + this.bossWolf.height / 2, 8, 12);
                             this.wolvesKilled += 5; // Conta como 5 lobos
                         }
                         // Marca que atingiu o boss (método markEnemyHit controla se a bala desativa)
@@ -753,6 +771,17 @@ class Game {
         
         // Remove partículas inativas
         this.particles = this.particles.filter(particle => particle.active);
+        
+        // Atualiza moedas
+        this.coins.forEach(coin => {
+            const result = coin.update(deltaTime, this.player);
+            if (result.collected) {
+                this.score += result.value;
+            }
+        });
+        
+        // Remove moedas inativas
+        this.coins = this.coins.filter(coin => coin.active);
         
         // Remove projéteis inativos
         this.bullets = this.bullets.filter(bullet => bullet.active);
@@ -824,6 +853,9 @@ class Game {
         // Desenha projéteis (não desenha no menu)
         if (!this.inMenu) {
             this.bullets.forEach(bullet => bullet.draw(this.ctx));
+            
+            // Desenha moedas
+            this.coins.forEach(coin => coin.draw(this.ctx));
             
             // Desenha partículas
             this.particles.forEach(particle => particle.draw(this.ctx));
@@ -1172,6 +1204,7 @@ class Game {
         this.bossSpawned = false;
         this.bossNotificationTimer = 0;
         this.bullets = [];
+        this.coins = [];
         this.crates = [];
         this.lakes = [];
         this.trees = [];
@@ -1191,6 +1224,7 @@ class Game {
         this.bossSpawned = false;
         this.bossNotificationTimer = 0;
         this.bullets = [];
+        this.coins = [];
         this.crates = [];
         this.score = 0;
         this.wolvesKilled = 0;

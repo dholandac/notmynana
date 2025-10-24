@@ -366,6 +366,23 @@ class Wolf {
             ctx.fillRect(this.x, drawY, this.width, this.height);
         }
         
+        // Desenha sombra no chão quando está pulando (e não está morrendo)
+        if (this.bounceOffset > 0.5 && !this.dying) {
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.ellipse(
+                this.x + this.width / 2, 
+                this.y + this.height, 
+                this.width / 3, 
+                this.height / 8, 
+                0, 0, Math.PI * 2
+            );
+            ctx.fill();
+            ctx.restore();
+        }
+        
         // Se está com flash de dano, desenha overlay vermelho (mas não quando está morrendo)
         if (this.hitFlashTime > 0 && !this.dying) {
             ctx.globalAlpha = 0.4;

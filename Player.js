@@ -51,6 +51,12 @@ class Player {
         // Sistema de partículas de movimento
         this.movementParticleTimer = 0;
         this.movementParticleRate = 100; // Cria partículas a cada 100ms quando se move
+        
+        // Sistema de pulinhos ao andar
+        this.bounceTimer = 0;
+        this.bounceSpeed = 12; // Velocidade do pulo (quanto maior, mais rápido)
+        this.bounceHeight = 4; // Altura do pulo em pixels (menor que o lobo)
+        this.bounceOffset = 0; // Offset vertical atual
     }
     
     loadImages() {
@@ -194,6 +200,19 @@ class Player {
         this.x = clamp(this.x, 0, CONFIG.WORLD_WIDTH - this.width);
         this.y = clamp(this.y, 0, CONFIG.WORLD_HEIGHT - this.height);
         
+        // Atualiza animação de pulinhos quando está se movendo
+        if (moving) {
+            this.bounceTimer += deltaTime / 1000; // Converte para segundos
+            this.bounceOffset = Math.abs(Math.sin(this.bounceTimer * this.bounceSpeed)) * this.bounceHeight;
+        } else {
+            // Quando parado, reseta o bounce suavemente
+            this.bounceOffset *= 0.8;
+            if (this.bounceOffset < 0.1) {
+                this.bounceOffset = 0;
+                this.bounceTimer = 0;
+            }
+        }
+        
         // Retorna array de partículas se está se movendo e é hora de criar
         if (moving && this.movementParticleTimer <= 0) {
             this.movementParticleTimer = this.movementParticleRate;
@@ -319,13 +338,16 @@ class Player {
             ctx.globalAlpha = 0.5;
         }
         
+        // Calcula posição Y com bounce
+        const drawY = this.y - this.bounceOffset;
+        
         // Efeito visual de dash
         if (this.isDashing) {
             ctx.save();
             
             // Aplica rotação durante o dash
             const centerX = this.x + this.width / 2;
-            const centerY = this.y + this.height / 2;
+            const centerY = drawY + this.height / 2;
             ctx.translate(centerX, centerY);
             ctx.rotate(this.dashRotation);
             ctx.translate(-centerX, -centerY);
@@ -336,10 +358,27 @@ class Player {
         }
         
         if (this.imagesLoaded && this.images[this.direction] && this.images[this.direction].complete) {
-            ctx.drawImage(this.images[this.direction], this.x, this.y, this.width, this.height);
+            ctx.drawImage(this.images[this.direction], this.x, drawY, this.width, this.height);
         } else {
             ctx.fillStyle = CONFIG.COLORS.PLAYER;
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(this.x, drawY, this.width, this.height);
+        }
+        
+        // Desenha sombra no chão quando está pulando
+        if (this.bounceOffset > 0.5) {
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.ellipse(
+                this.x + this.width / 2, 
+                this.y + this.height, 
+                this.width / 3, 
+                this.height / 8, 
+                0, 0, Math.PI * 2
+            );
+            ctx.fill();
+            ctx.restore();
         }
         
         if (this.isDashing) {
