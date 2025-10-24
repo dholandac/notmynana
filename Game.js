@@ -23,6 +23,15 @@ class Game {
         this.rocks = [];
         this.particles = []; // Sistema de partículas
         this.coins = []; // Sistema de moedas
+        this.house = null; // Casa que aparece após matar lobos
+        this.campfire = null; // Fogueira dentro da casa
+        
+        // Sistema de mapa/transição
+        this.isInHouse = false;
+        this.savedWorldState = null;
+        this.houseSpawned = false;
+        this.wolvesKilledForNextHouse = 10; // Casa aparece a cada 10 lobos mortos
+        this.wolvesKilledSinceLastHouse = 0; // Contador desde a última casa
         
         // Gera padrão de fundo uma vez só
         this.generateGroundPattern();
@@ -55,6 +64,9 @@ class Game {
         // Notificação de powerup
         this.powerupNotificationTimer = null;
         
+        // Sistema de pausa durante notificações
+        this.isPaused = false;
+        
         // Inicialização
         this.init();
         this.setupMenuControls();
@@ -63,6 +75,9 @@ class Game {
     init() {
         // Cria lagos primeiro
         this.spawnLakes();
+        
+        // Reposiciona player se spawnou em um lago
+        this.repositionPlayerIfInLake();
         
         // Cria árvores
         this.spawnTrees();
@@ -76,6 +91,43 @@ class Game {
         // Spawna alguns lobos iniciais
         for (let i = 0; i < 3; i++) {
             this.spawnWolf();
+        }
+    }
+    
+    repositionPlayerIfInLake() {
+        // Verifica se o player está em um lago
+        let isInLake = false;
+        for (let lake of this.lakes) {
+            if (lake.isColliding(this.player)) {
+                isInLake = true;
+                break;
+            }
+        }
+        
+        // Se está em um lago, encontra nova posição
+        if (isInLake) {
+            let validPosition = false;
+            let attempts = 0;
+            
+            while (!validPosition && attempts < 100) {
+                // Tenta posições aleatórias
+                const x = randomRange(200, CONFIG.WORLD_WIDTH - 200);
+                const y = randomRange(200, CONFIG.WORLD_HEIGHT - 200);
+                
+                this.player.x = x;
+                this.player.y = y;
+                
+                // Verifica se a nova posição é válida
+                validPosition = true;
+                for (let lake of this.lakes) {
+                    if (lake.isColliding(this.player)) {
+                        validPosition = false;
+                        break;
+                    }
+                }
+                
+                attempts++;
+            }
         }
     }
     
@@ -467,8 +519,165 @@ class Game {
         this.bossWolf = new BossWolf(x, y);
         this.bossSpawned = true;
         this.bossNotificationTimer = this.bossNotificationDuration;
+        this.isPaused = true; // Pausa o jogo durante notificação do boss
         
         console.log('Boss Wolf spawnou!');
+    }
+    
+    spawnHouse() {
+        // Encontra uma posição válida para a casa
+        let validPosition = false;
+        let attempts = 0;
+        let houseX, houseY;
+        
+        while (!validPosition && attempts < 100) {
+            houseX = randomRange(200, CONFIG.WORLD_WIDTH - 320);
+            houseY = randomRange(200, CONFIG.WORLD_HEIGHT - 300);
+            
+            const tempHouse = { x: houseX, y: houseY, width: 120, height: 100 };
+            validPosition = true;
+            
+            // Verifica se não está em um lago
+            for (let lake of this.lakes) {
+                if (lake.isColliding(tempHouse)) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            // Verifica se não está muito perto de árvores
+            if (validPosition) {
+                for (let tree of this.trees) {
+                    const dist = Math.sqrt(
+                        Math.pow((houseX + 60) - (tree.x + tree.width / 2), 2) +
+                        Math.pow((houseY + 50) - (tree.y + tree.height / 2), 2)
+                    );
+                    if (dist < 100) {
+                        validPosition = false;
+                        break;
+                    }
+                }
+            }
+            
+            // Verifica se não está muito perto do player
+            if (validPosition) {
+                const dist = Math.sqrt(
+                    Math.pow((houseX + 60) - this.player.x, 2) +
+                    Math.pow((houseY + 50) - this.player.y, 2)
+                );
+                if (dist < 200) {
+                    validPosition = false;
+                }
+            }
+            
+            attempts++;
+        }
+        
+        if (validPosition) {
+            this.house = new House(houseX, houseY);
+            this.houseSpawned = true;
+            console.log('Casa spawnou na posição:', houseX, houseY);
+        }
+    }
+    
+    enterHouse() {
+        console.log('Entrando na casa...');
+        
+        // Salva o estado do mundo atual (incluindo câmera)
+        this.savedWorldState = {
+            playerX: this.player.x,
+            playerY: this.player.y,
+            wolves: [...this.wolves],
+            bossWolf: this.bossWolf,
+            bullets: [...this.bullets],
+            crates: [...this.crates],
+            coins: [...this.coins],
+            particles: [...this.particles],
+            houseX: this.house.x,
+            houseY: this.house.y,
+            cameraX: this.camera.x,
+            cameraY: this.camera.y
+        };
+        
+        // Limpa entidades do mundo externo
+        this.wolves = [];
+        this.bossWolf = null;
+        this.bullets = [];
+        this.coins = [];
+        this.particles = [];
+        
+        // Cria o mapa interno da casa (pequeno, 5x5 árvores aproximadamente)
+        this.isInHouse = true;
+        
+        // Define tamanho do mapa interno (pequeno)
+        this.houseMapWidth = 400; // Cerca de 5 árvores de largura
+        this.houseMapHeight = 400; // Cerca de 5 árvores de altura
+        
+        // Calcula offsets de centralização
+        const offsetX = (CONFIG.WORLD_WIDTH - this.houseMapWidth) / 2;
+        const offsetY = (CONFIG.WORLD_HEIGHT - this.houseMapHeight) / 2;
+        
+        // Posiciona player no centro-superior da casa (dentro do mapa pequeno)
+        this.player.x = offsetX + this.houseMapWidth / 2 - this.player.width / 2;
+        this.player.y = offsetY + 80;
+        
+        // Cria fogueira no centro do mapa pequeno
+        this.campfire = new Campfire(
+            offsetX + this.houseMapWidth / 2 - 25,
+            offsetY + this.houseMapHeight / 2 - 25
+        );
+    }
+    
+    exitHouse() {
+        console.log('Saindo da casa...');
+        
+        if (!this.savedWorldState) return;
+        
+        // Cria partículas de explosão na posição da casa antes de sair
+        const houseX = this.savedWorldState.houseX;
+        const houseY = this.savedWorldState.houseY;
+        
+        // Cria partículas de explosão (similar às árvores)
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = randomRange(50, 150);
+            const lifetime = randomRange(800, 1500);
+            
+            this.particles.push(new Particle(
+                houseX + 60, // Centro da casa
+                houseY + 50,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                randomRange(4, 10),
+                `hsl(${randomRange(20, 40)}, 70%, ${randomRange(40, 60)}%)`, // Tons de madeira
+                lifetime
+            ));
+        }
+        
+        // Restaura o estado do mundo
+        this.player.x = this.savedWorldState.playerX;
+        this.player.y = this.savedWorldState.playerY;
+        this.wolves = this.savedWorldState.wolves;
+        this.bossWolf = this.savedWorldState.bossWolf;
+        this.bullets = this.savedWorldState.bullets;
+        this.crates = this.savedWorldState.crates;
+        this.coins = this.savedWorldState.coins;
+        // Mantém as partículas de explosão e adiciona as antigas
+        this.particles.push(...this.savedWorldState.particles);
+        
+        // Remove a casa
+        this.house = null;
+        this.houseSpawned = false;
+        
+        // Reseta o contador para a próxima casa spawnar em 10 lobos
+        this.wolvesKilledSinceLastHouse = 0;
+        
+        // Remove a fogueira
+        this.campfire = null;
+        
+        // Volta ao mapa principal
+        this.isInHouse = false;
+        this.savedWorldState = null;
     }
     
     setupMenuControls() {
@@ -532,47 +741,60 @@ class Game {
             this.damageFlashTime -= deltaTime;
         }
         
-        // Guarda posição anterior do jogador
-        const prevX = this.player.x;
-        const prevY = this.player.y;
-        
-        // Atualiza jogador e verifica se criou um bullet e/ou partículas
-        const playerResult = this.player.update(deltaTime);
-        if (playerResult.bullet) {
-            this.bullets.push(playerResult.bullet);
-        }
-        if (playerResult.particles && playerResult.particles.length > 0) {
-            this.particles.push(...playerResult.particles);
-        }
-        
-        // Verifica colisão com lagos
-        for (let lake of this.lakes) {
-            if (lake.isColliding(this.player)) {
-                // Reverte posição
-                this.player.x = prevX;
-                this.player.y = prevY;
-                break;
+        // Se o jogo está pausado (notificações), não atualiza movimento
+        if (!this.isPaused) {
+            // Guarda posição anterior do jogador
+            const prevX = this.player.x;
+            const prevY = this.player.y;
+            
+            // Atualiza jogador e verifica se criou um bullet e/ou partículas
+            const playerResult = this.player.update(deltaTime);
+            if (playerResult.bullet) {
+                this.bullets.push(playerResult.bullet);
             }
-        }
-        
-        // Verifica colisão com árvores
-        for (let tree of this.trees) {
-            if (tree.isColliding(this.player)) {
-                // Reverte posição
-                this.player.x = prevX;
-                this.player.y = prevY;
-                break;
+            if (playerResult.particles && playerResult.particles.length > 0) {
+                this.particles.push(...playerResult.particles);
+            }
+            
+            // Se estiver dentro da casa, limita movimento ao mapa pequeno
+            if (this.isInHouse) {
+                const offsetX = (CONFIG.WORLD_WIDTH - this.houseMapWidth) / 2;
+                const offsetY = (CONFIG.WORLD_HEIGHT - this.houseMapHeight) / 2;
+                
+                this.player.x = clamp(this.player.x, offsetX, offsetX + this.houseMapWidth - this.player.width);
+                this.player.y = clamp(this.player.y, offsetY, offsetY + this.houseMapHeight - this.player.height);
+            } else {
+                // Verifica colisão com lagos (apenas no mundo externo)
+                for (let lake of this.lakes) {
+                    if (lake.isColliding(this.player)) {
+                        // Reverte posição
+                        this.player.x = prevX;
+                        this.player.y = prevY;
+                        break;
+                    }
+                }
+                
+                // Verifica colisão com árvores (apenas no mundo externo)
+                for (let tree of this.trees) {
+                    if (tree.isColliding(this.player)) {
+                        // Reverte posição
+                        this.player.x = prevX;
+                        this.player.y = prevY;
+                        break;
+                    }
+                }
             }
         }
         
         // Atualiza câmera
         this.camera.follow(this.player);
         
-        // Atualiza lobos
-        this.wolves.forEach(wolf => {
-            // Guarda posição anterior do lobo
-            const prevWolfX = wolf.x;
-            const prevWolfY = wolf.y;
+        // Atualiza lobos (apenas se não estiver pausado e não dentro da casa)
+        if (!this.isPaused && !this.isInHouse) {
+            this.wolves.forEach(wolf => {
+                // Guarda posição anterior do lobo
+                const prevWolfX = wolf.x;
+                const prevWolfY = wolf.y;
             
             // Passa obstáculos para a IA do lobo e coleta partículas
             const obstacles = [...this.lakes, ...this.trees];
@@ -615,6 +837,7 @@ class Game {
                 }
             }
         });
+        } // Fecha o if (!this.isPaused) dos lobos
         
         // Remove lobos mortos (apenas após a animação de morte completar)
         this.wolves = this.wolves.filter(wolf => {
@@ -624,8 +847,8 @@ class Game {
             return true;
         });
         
-        // Atualiza boss wolf
-        if (this.bossWolf) {
+        // Atualiza boss wolf (apenas se não estiver pausado e não dentro da casa)
+        if (this.bossWolf && !this.isPaused && !this.isInHouse) {
             const prevBossX = this.bossWolf.x;
             const prevBossY = this.bossWolf.y;
             
@@ -687,11 +910,54 @@ class Game {
         // Atualiza timer de notificação do boss
         if (this.bossNotificationTimer > 0) {
             this.bossNotificationTimer -= deltaTime;
+            if (this.bossNotificationTimer <= 0) {
+                this.isPaused = false; // Despausa quando a notificação do boss termina
+            }
         }
         
-        // Verifica se deve spawnar o boss
-        if (!this.bossSpawned && this.wolvesKilled >= CONFIG.BOSS_SPAWN_KILLS) {
+        // Verifica se deve spawnar o boss (apenas no mapa principal)
+        if (!this.bossSpawned && !this.isInHouse && this.wolvesKilled >= CONFIG.BOSS_SPAWN_KILLS) {
             this.spawnBoss();
+        }
+        
+        // Verifica se deve spawnar a casa (apenas no mapa principal, a cada 10 lobos)
+        if (!this.houseSpawned && !this.isInHouse && this.wolvesKilledSinceLastHouse >= this.wolvesKilledForNextHouse) {
+            this.spawnHouse();
+        }
+        
+        // Atualiza casa se existir (apenas no mapa principal)
+        if (this.house && !this.isInHouse) {
+            this.house.update(deltaTime);
+            
+            // Verifica se o player entrou na casa
+            if (this.house.isColliding(this.player)) {
+                this.enterHouse();
+            }
+        }
+        
+        // Atualiza fogueira se estiver dentro da casa
+        if (this.campfire && this.isInHouse) {
+            this.campfire.update(deltaTime);
+        }
+        
+        // Verifica se o player quer sair da casa (porta na parte inferior)
+        if (this.isInHouse) {
+            // Calcula posição da porta baseada no mapa pequeno centralizado
+            const offsetX = (CONFIG.WORLD_WIDTH - this.houseMapWidth) / 2;
+            const offsetY = (CONFIG.WORLD_HEIGHT - this.houseMapHeight) / 2;
+            const exitWidth = 80;
+            const exitHeight = 60;
+            
+            const exitArea = {
+                x: offsetX + (this.houseMapWidth - exitWidth) / 2,
+                y: offsetY + this.houseMapHeight - exitHeight,
+                width: exitWidth,
+                height: exitHeight
+            };
+            
+            if (checkCollision(this.player, exitArea)) {
+                this.exitHouse();
+            }
         }
         
         // Atualiza projéteis
@@ -734,6 +1000,7 @@ class Game {
                             // Lobo morreu - dropa moedas
                             this.spawnCoins(wolf.x + wolf.width / 2, wolf.y + wolf.height / 2, 2, 3);
                             this.wolvesKilled++;
+                            this.wolvesKilledSinceLastHouse++; // Incrementa contador para próxima casa
                         }
                         // Marca que atingiu este inimigo (método markEnemyHit controla se a bala desativa)
                         bullet.markEnemyHit(wolf);
@@ -748,6 +1015,7 @@ class Game {
                             // Boss morreu - dropa mais moedas!
                             this.spawnCoins(this.bossWolf.x + this.bossWolf.width / 2, this.bossWolf.y + this.bossWolf.height / 2, 8, 12);
                             this.wolvesKilled += 5; // Conta como 5 lobos
+                            this.wolvesKilledSinceLastHouse += 5; // Incrementa contador para próxima casa
                         }
                         // Marca que atingiu o boss (método markEnemyHit controla se a bala desativa)
                         bullet.markEnemyHit(this.bossWolf);
@@ -800,11 +1068,13 @@ class Game {
             }
         });
         
-        // Spawn de lobos
-        this.wolfSpawnTimer += deltaTime;
-        if (this.wolfSpawnTimer >= this.wolfSpawnRate) {
-            this.spawnWolf();
-            this.wolfSpawnTimer = 0;
+        // Spawn de lobos (apenas se não estiver dentro da casa)
+        if (!this.isInHouse) {
+            this.wolfSpawnTimer += deltaTime;
+            if (this.wolfSpawnTimer >= this.wolfSpawnRate) {
+                this.spawnWolf();
+                this.wolfSpawnTimer = 0;
+            }
         }
         
         // Atualiza UI
@@ -832,26 +1102,42 @@ class Game {
         // Desenha mundo (background pattern)
         this.drawWorld();
         
-        // Desenha lagos
-        this.lakes.forEach(lake => lake.draw(this.ctx));
+        // Desenha lagos (apenas se não estiver dentro da casa)
+        if (!this.isInHouse) {
+            this.lakes.forEach(lake => lake.draw(this.ctx));
+        }
         
-        // Desenha pedras (sempre no chão, antes de tudo)
-        this.rocks.forEach(rock => rock.draw(this.ctx));
+        // Desenha pedras (sempre no chão, antes de tudo) (apenas se não estiver dentro da casa)
+        if (!this.isInHouse) {
+            this.rocks.forEach(rock => rock.draw(this.ctx));
+        }
         
-        // Desenha árvores (camada inferior)
-        this.trees.forEach(tree => {
-            if (this.inMenu || tree.y < this.player.y) {
-                tree.draw(this.ctx);
-            }
-        });
+        // Desenha árvores (camada inferior) (apenas se não estiver dentro da casa)
+        if (!this.isInHouse) {
+            this.trees.forEach(tree => {
+                if (this.inMenu || tree.y < this.player.y) {
+                    tree.draw(this.ctx);
+                }
+            });
+        }
         
-        // Desenha caixas (não desenha no menu)
-        if (!this.inMenu) {
+        // Desenha caixas (não desenha no menu nem dentro da casa)
+        if (!this.inMenu && !this.isInHouse) {
             this.crates.forEach(crate => crate.draw(this.ctx));
         }
         
-        // Desenha projéteis (não desenha no menu)
-        if (!this.inMenu) {
+        // Desenha casa (apenas no mapa principal, não no menu)
+        if (this.house && !this.inMenu && !this.isInHouse) {
+            this.house.draw(this.ctx);
+        }
+        
+        // Desenha fogueira (apenas dentro da casa)
+        if (this.campfire && this.isInHouse) {
+            this.campfire.draw(this.ctx);
+        }
+        
+        // Desenha projéteis (não desenha no menu nem dentro da casa)
+        if (!this.inMenu && !this.isInHouse) {
             this.bullets.forEach(bullet => bullet.draw(this.ctx));
             
             // Desenha moedas
@@ -861,10 +1147,10 @@ class Game {
             this.particles.forEach(particle => particle.draw(this.ctx));
         }
         
-        // Desenha lobos ou lobos decorativos
+        // Desenha lobos ou lobos decorativos (não desenha dentro da casa)
         if (this.inMenu) {
             this.decorativeWolves.forEach(wolf => wolf.draw(this.ctx));
-        } else {
+        } else if (!this.isInHouse) {
             this.wolves.forEach(wolf => wolf.draw(this.ctx));
             
             // Desenha boss wolf
@@ -878,8 +1164,8 @@ class Game {
             this.player.draw(this.ctx);
         }
         
-        // Desenha árvores (camada superior - na frente do player)
-        if (!this.inMenu) {
+        // Desenha árvores (camada superior - na frente do player) (apenas se não estiver dentro da casa)
+        if (!this.inMenu && !this.isInHouse) {
             this.trees.forEach(tree => {
                 if (tree.y >= this.player.y) {
                     tree.draw(this.ctx);
@@ -900,6 +1186,70 @@ class Game {
     }
     
     drawWorld() {
+        // Se estiver dentro da casa, desenha chão diferente (mapa pequeno)
+        if (this.isInHouse) {
+            // Fundo preto ao redor
+            this.ctx.fillStyle = '#000000';
+            this.ctx.fillRect(0, 0, CONFIG.WORLD_WIDTH, CONFIG.WORLD_HEIGHT);
+            
+            // Calcula posição centralizada do mapa da casa
+            const offsetX = (CONFIG.WORLD_WIDTH - this.houseMapWidth) / 2;
+            const offsetY = (CONFIG.WORLD_HEIGHT - this.houseMapHeight) / 2;
+            
+            // Chão de madeira escura e elegante
+            const gradient = this.ctx.createLinearGradient(offsetX, offsetY, offsetX, offsetY + this.houseMapHeight);
+            gradient.addColorStop(0, '#2a1810');
+            gradient.addColorStop(0.5, '#3d2516');
+            gradient.addColorStop(1, '#2a1810');
+            this.ctx.fillStyle = gradient;
+            this.ctx.fillRect(offsetX, offsetY, this.houseMapWidth, this.houseMapHeight);
+            
+            // Tábuas de madeira com detalhes mais sutis
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            this.ctx.lineWidth = 2;
+            for (let y = 0; y < this.houseMapHeight; y += 40) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(offsetX, offsetY + y);
+                this.ctx.lineTo(offsetX + this.houseMapWidth, offsetY + y);
+                this.ctx.stroke();
+                
+                // Linhas verticais para simular tábuas
+                for (let x = 0; x < this.houseMapWidth; x += 120) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(offsetX + x, offsetY + y);
+                    this.ctx.lineTo(offsetX + x, offsetY + y + 40);
+                    this.ctx.stroke();
+                }
+            }
+            
+            // Borda interna com sombra
+            this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.shadowBlur = 15;
+            this.ctx.shadowOffsetX = 0;
+            this.ctx.shadowOffsetY = 0;
+            this.ctx.strokeStyle = '#1a0f08';
+            this.ctx.lineWidth = 8;
+            this.ctx.strokeRect(offsetX + 4, offsetY + 4, this.houseMapWidth - 8, this.houseMapHeight - 8);
+            this.ctx.shadowBlur = 0;
+            
+            // Porta de saída (área inferior centralizada)
+            const exitWidth = 80;
+            const exitHeight = 60;
+            const exitX = offsetX + (this.houseMapWidth - exitWidth) / 2;
+            const exitY = offsetY + this.houseMapHeight - exitHeight;
+            
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(exitX, exitY, exitWidth, exitHeight);
+            
+            // Indicador de saída
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.font = 'bold 16px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('↓ SAIR', exitX + exitWidth / 2, exitY + 35);
+            
+            return; // Não desenha o mundo normal
+        }
+        
         // Calcula área visível baseado no estado do jogo
         let startX, startY, endX, endY;
         
@@ -1161,7 +1511,8 @@ class Game {
             'PIERCING': { 
                 text: `◆ PERFURAÇÃO NÍVEL ${this.player.powerups.piercing}!`, 
                 color: '#ff44ff' 
-            }
+            },
+            'HEALTH': { text: '❤️ VIDA MÁXIMA +', color: '#ff0000' }
         };
         
         const info = powerupInfo[powerupType];
@@ -1175,19 +1526,34 @@ class Game {
         // Limpa timer anterior se existir
         if (this.powerupNotificationTimer) {
             clearTimeout(this.powerupNotificationTimer);
-            notificationEl.classList.remove('show');
+            notificationEl.classList.remove('show', 'hide');
+            notificationEl.style.display = 'none';
+            this.isPaused = false; // Despausa se havia notificação anterior
         }
         
+        // Pausa o jogo
+        this.isPaused = true;
+        
         // Configura e mostra a notificação
+        notificationEl.style.display = 'block';
         notificationEl.textContent = info.text;
         notificationEl.style.borderColor = info.color;
         notificationEl.style.color = info.color;
+        notificationEl.classList.remove('hide'); // Remove classe hide se existir
         notificationEl.classList.add('show');
         
-        // Esconde após 2 segundos
+        // Inicia fade out após 1.5 segundos (antes de esconder)
         this.powerupNotificationTimer = setTimeout(() => {
             notificationEl.classList.remove('show');
-        }, 2000);
+            notificationEl.classList.add('hide');
+            
+            // Remove completamente e despausa após a animação terminar (0.5s)
+            setTimeout(() => {
+                notificationEl.classList.remove('hide');
+                notificationEl.style.display = 'none';
+                this.isPaused = false;
+            }, 500);
+        }, 1500);
     }
     
     handleShoot() {
@@ -1213,6 +1579,11 @@ class Game {
         this.wolvesKilled = 0;
         this.wolfSpawnTimer = 0;
         this.gameOver = false;
+        this.house = null;
+        this.campfire = null;
+        this.houseSpawned = false;
+        this.isInHouse = false;
+        this.savedWorldState = null;
         this.init();
     }
     
@@ -1230,6 +1601,11 @@ class Game {
         this.wolvesKilled = 0;
         this.wolfSpawnTimer = 0;
         this.gameOver = false;
+        this.house = null;
+        this.campfire = null;
+        this.houseSpawned = false;
+        this.isInHouse = false;
+        this.savedWorldState = null;
         this.damageFlashTime = 0; // Reseta o flash de dano
         
         // Volta para o menu

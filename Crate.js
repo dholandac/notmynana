@@ -28,6 +28,8 @@ class Crate {
                 return '#95e1d3'; // Verde água
             case CONFIG.POWERUPS.PIERCING:
                 return '#c44569'; // Rosa escuro
+            case CONFIG.POWERUPS.HEALTH:
+                return '#ff0000'; // Vermelho brilhante
             default:
                 return '#8b4513';
         }
@@ -45,6 +47,8 @@ class Crate {
                 return 'Move+';
             case CONFIG.POWERUPS.PIERCING:
                 return 'Pierce';
+            case CONFIG.POWERUPS.HEALTH:
+                return 'Health+';
             default:
                 return 'Power';
         }

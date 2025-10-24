@@ -45,7 +45,7 @@ class Coin {
         // Remove moeda se passou do tempo de vida
         if (this.age >= this.lifetime) {
             this.active = false;
-            return;
+            return { collected: false };
         }
         
         // Calcula distância até o jogador

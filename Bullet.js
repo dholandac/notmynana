@@ -80,8 +80,9 @@ class Bullet {
         // Com perfuração, verifica se já acertou este inimigo
         if (this.hitEnemies.includes(enemy)) return false;
         
-        // Verifica se já atingiu o máximo de inimigos permitidos
-        if (this.hitEnemies.length >= this.maxPiercing) return false;
+        // Com piercing nível N, pode atingir N+1 inimigos total
+        // Piercing 1 = 2 inimigos, Piercing 2 = 3 inimigos, etc.
+        if (this.hitEnemies.length >= (this.maxPiercing + 1)) return false;
         
         return true;
     }
@@ -90,9 +91,9 @@ class Bullet {
         if (this.piercing > 0) {
             this.hitEnemies.push(enemy);
             
-            // Com piercing nível N, pode atravessar N inimigos e acertar mais 1
-            // Exemplo: piercing 1 = atravessa 1 + acerta 1 = total 2 lobos
-            if (this.hitEnemies.length > this.maxPiercing) {
+            // Desativa a bala quando atingir o limite de inimigos
+            // Piercing 1 = 2 inimigos total, Piercing 2 = 3 inimigos total
+            if (this.hitEnemies.length >= (this.maxPiercing + 1)) {
                 this.active = false;
             }
         } else {

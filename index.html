@@ -178,10 +178,18 @@
             display: block;
             animation: powerupPulse 0.5s ease-in-out;
         }
+        #powerupNotification.hide {
+            display: block;
+            animation: powerupFadeOut 0.5s ease-in-out forwards;
+        }
         @keyframes powerupPulse {
             0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
             50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
             100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        @keyframes powerupFadeOut {
+            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
         }
         
         /* Menu Screen */
@@ -350,6 +358,8 @@
     <script src="utils.js"></script>
     <script src="Particle.js"></script>
     <script src="Coin.js"></script>
+    <script src="House.js"></script>
+    <script src="Campfire.js"></script>
     <script src="Player.js"></script>
     <script src="Wolf.js"></script>
     <script src="BossWolf.js"></script>

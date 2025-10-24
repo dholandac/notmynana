@@ -366,8 +366,8 @@ class Wolf {
             ctx.fillRect(this.x, drawY, this.width, this.height);
         }
         
-        // Desenha sombra no chão quando está pulando (e não está morrendo)
-        if (this.bounceOffset > 0.5 && !this.dying) {
+        // Desenha sombra no chão (sempre visível, exceto quando está morrendo)
+        if (!this.dying) {
             ctx.save();
             ctx.globalAlpha = 0.3;
             ctx.fillStyle = '#000000';

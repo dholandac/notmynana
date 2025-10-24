@@ -313,6 +313,11 @@ class Player {
             case 'PIERCING':
                 this.powerups.piercing += 1; // Aumenta o nível de perfuração
                 break;
+            case 'HEALTH':
+                // Aumenta vida máxima e cura completamente
+                CONFIG.PLAYER_MAX_LIVES += 1;
+                this.lives = CONFIG.PLAYER_MAX_LIVES;
+                break;
             default:
                 console.warn('Powerup desconhecido:', powerupType);
         }
@@ -364,22 +369,20 @@ class Player {
             ctx.fillRect(this.x, drawY, this.width, this.height);
         }
         
-        // Desenha sombra no chão quando está pulando
-        if (this.bounceOffset > 0.5) {
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            ctx.fillStyle = '#000000';
-            ctx.beginPath();
-            ctx.ellipse(
-                this.x + this.width / 2, 
-                this.y + this.height, 
-                this.width / 3, 
-                this.height / 8, 
-                0, 0, Math.PI * 2
-            );
-            ctx.fill();
-            ctx.restore();
-        }
+        // Desenha sombra no chão (sempre visível)
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.ellipse(
+            this.x + this.width / 2, 
+            this.y + this.height, 
+            this.width / 3, 
+            this.height / 8, 
+            0, 0, Math.PI * 2
+        );
+        ctx.fill();
+        ctx.restore();
         
         if (this.isDashing) {
             ctx.restore();
