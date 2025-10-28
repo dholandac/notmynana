@@ -44,9 +44,20 @@ class Game {
             CONFIG.CANVAS_HEIGHT
         );
         
-        // Spawn de lobos
-        this.wolfSpawnTimer = 0;
-        this.wolfSpawnRate = CONFIG.WOLF_SPAWN_RATE;
+        // Sistema de ondas
+        this.currentWave = 0;
+        this.waveState = 'preparing'; // 'preparing', 'spawning', 'active', 'waiting'
+        this.waveTimer = 0;
+        this.waveWaitDuration = 15000; // 15 segundos entre ondas
+        this.waveSpawnTimer = 0;
+        this.waveSpawnRate = 1500; // Spawna um lobo a cada 1.5 segundos durante a onda
+        this.wolvesToSpawnInWave = 0;
+        this.wolvesSpawnedInWave = 0;
+        this.waveNotificationTimer = 0;
+        this.waveNotificationDuration = 3000; // 3 segundos
+        this.waveProgressNotificationTimer = 0;
+        this.waveProgressNotificationDuration = 2000; // 2 segundos para notificações de progresso
+        this.lastProgressMilestone = 0; // Último marco de progresso mostrado (25%, 50%, 75%)
         
         // Score
         this.score = 0;
@@ -88,10 +99,9 @@ class Game {
         // Cria caixas de munição pelo mapa
         this.spawnCrates();
         
-        // Spawna alguns lobos iniciais
-        for (let i = 0; i < 3; i++) {
-            this.spawnWolf();
-        }
+        // Aguarda 5 segundos antes de iniciar a primeira onda
+        this.waveState = 'waiting';
+        this.waveTimer = -5000; // Começa negativo para esperar 5 segundos
     }
     
     repositionPlayerIfInLake() {
@@ -488,6 +498,102 @@ class Game {
             this.coins.push(new Coin(coinX, coinY));
         }
     }
+    
+    startWave() {
+        this.currentWave++;
+        this.waveState = 'spawning';
+        this.waveNotificationTimer = this.waveNotificationDuration;
+        this.isPaused = true; // Pausa o jogo durante a notificação
+        
+        // Calcula quantos lobos spawnar nesta onda
+        // Começa com 5 lobos na onda 1 e aumenta progressivamente
+        this.wolvesToSpawnInWave = 5 + (this.currentWave - 1) * 3;
+        this.wolvesSpawnedInWave = 0;
+        this.waveSpawnTimer = 0;
+        this.lastProgressMilestone = 0; // Reset do progresso
+        
+        console.log(`Onda ${this.currentWave} iniciada! ${this.wolvesToSpawnInWave} lobos.`);
+    }
+    
+    updateWaveSystem(deltaTime) {
+        // Atualiza notificação de progresso da onda
+        if (this.waveProgressNotificationTimer > 0) {
+            this.waveProgressNotificationTimer -= deltaTime;
+        }
+        
+        // Atualiza notificação de onda
+        if (this.waveNotificationTimer > 0) {
+            this.waveNotificationTimer -= deltaTime;
+            if (this.waveNotificationTimer <= 0) {
+                this.isPaused = false;
+            }
+            return;
+        }
+        
+        // Estado: spawning - spawnando lobos da onda
+        if (this.waveState === 'spawning') {
+            this.waveSpawnTimer += deltaTime;
+            
+            if (this.waveSpawnTimer >= this.waveSpawnRate && this.wolvesSpawnedInWave < this.wolvesToSpawnInWave) {
+                this.spawnWolf();
+                this.wolvesSpawnedInWave++;
+                this.waveSpawnTimer = 0;
+                
+                // Se spawnou todos os lobos, muda para estado ativo
+                if (this.wolvesSpawnedInWave >= this.wolvesToSpawnInWave) {
+                    this.waveState = 'active';
+                    console.log('Todos os lobos da onda foram spawnados!');
+                }
+            }
+        }
+        
+        // Estado: active - onda ativa, esperando lobos morrerem
+        if (this.waveState === 'active') {
+            // Se todos os lobos morreram, inicia período de espera
+            if (this.wolves.length === 0 && !this.bossWolf) {
+                this.waveState = 'waiting';
+                this.waveTimer = 0;
+                console.log('Onda completada! Aguardando próxima onda...');
+            }
+        }
+        
+        // Estado: waiting - esperando para iniciar próxima onda
+        if (this.waveState === 'waiting') {
+            this.waveTimer += deltaTime;
+            
+            if (this.waveTimer >= this.waveWaitDuration) {
+                this.startWave();
+            }
+        }
+    }
+    
+    checkWaveProgress() {
+        // Calcula lobos restantes (não spawnados + vivos)
+        const remainingWolves = this.wolvesToSpawnInWave - this.wolvesSpawnedInWave + this.wolves.length;
+        
+        // Calcula quantos lobos foram eliminados
+        const wolvesKilledInWave = this.wolvesToSpawnInWave - remainingWolves;
+        
+        // Calcula progresso em porcentagem
+        const progressPercent = (wolvesKilledInWave / this.wolvesToSpawnInWave) * 100;
+        
+        // Verifica marcos de 25%, 50%, 75%
+        let milestone = 0;
+        if (progressPercent >= 75 && this.lastProgressMilestone < 75) {
+            milestone = 75;
+        } else if (progressPercent >= 50 && this.lastProgressMilestone < 50) {
+            milestone = 50;
+        } else if (progressPercent >= 25 && this.lastProgressMilestone < 25) {
+            milestone = 25;
+        }
+        
+        // Mostra notificação se atingiu um marco
+        if (milestone > 0) {
+            this.lastProgressMilestone = milestone;
+            this.waveProgressNotificationTimer = this.waveProgressNotificationDuration;
+            console.log(`Progresso da onda: ${milestone}% - ${remainingWolves} lobos restantes`);
+        }
+    }
 
     
     spawnBoss() {
@@ -715,6 +821,7 @@ class Game {
         document.getElementById('lives').style.display = 'block';
         document.getElementById('score').style.display = 'block';
         document.getElementById('wolves').style.display = 'block';
+        // Indicador de onda é controlado dinamicamente no updateUI
     }
     
     update(deltaTime) {
@@ -840,12 +947,18 @@ class Game {
         } // Fecha o if (!this.isPaused) dos lobos
         
         // Remove lobos mortos (apenas após a animação de morte completar)
+        const wolvesBeforeRemoval = this.wolves.length;
         this.wolves = this.wolves.filter(wolf => {
             // Remove se health < 0 (animação de morte terminou)
             if (wolf.health < 0) return false;
             // Mantém se está vivo ou morrendo (mas ainda com health >= 0)
             return true;
         });
+        
+        // Verifica progresso da onda após remover lobos mortos
+        if (wolvesBeforeRemoval > this.wolves.length && (this.waveState === 'spawning' || this.waveState === 'active')) {
+            this.checkWaveProgress();
+        }
         
         // Atualiza boss wolf (apenas se não estiver pausado e não dentro da casa)
         if (this.bossWolf && !this.isPaused && !this.isInHouse) {
@@ -1068,13 +1181,9 @@ class Game {
             }
         });
         
-        // Spawn de lobos (apenas se não estiver dentro da casa)
+        // Sistema de ondas (apenas se não estiver dentro da casa)
         if (!this.isInHouse) {
-            this.wolfSpawnTimer += deltaTime;
-            if (this.wolfSpawnTimer >= this.wolfSpawnRate) {
-                this.spawnWolf();
-                this.wolfSpawnTimer = 0;
-            }
+            this.updateWaveSystem(deltaTime);
         }
         
         // Atualiza UI
@@ -1397,6 +1506,34 @@ class Game {
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
         
+        // Notificação de nova onda
+        if (this.waveNotificationTimer > 0) {
+            const alpha = Math.min(1, this.waveNotificationTimer / 1000); // Fade in/out
+            
+            this.ctx.save();
+            this.ctx.globalAlpha = alpha;
+            
+            // Fundo escuro
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(0, this.canvas.height / 2 - 80, this.canvas.width, 160);
+            
+            // Texto da onda
+            this.ctx.fillStyle = '#ffaa00';
+            this.ctx.font = 'bold 48px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.shadowColor = 'black';
+            this.ctx.shadowBlur = 10;
+            this.ctx.fillText(`⚔️ ONDA ${this.currentWave} ⚔️`, this.canvas.width / 2, this.canvas.height / 2 - 20);
+            
+            // Subtexto com quantidade de lobos
+            this.ctx.font = 'bold 24px Arial';
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillText(`${this.wolvesToSpawnInWave} Lobos`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+            
+            this.ctx.restore();
+        }
+        
         // Notificação de spawn do boss
         if (this.bossNotificationTimer > 0) {
             const alpha = Math.min(1, this.bossNotificationTimer / 1000); // Fade in/out
@@ -1481,6 +1618,60 @@ class Game {
         document.getElementById('livesCount').textContent = this.player.lives;
         document.getElementById('scoreCount').textContent = this.score;
         document.getElementById('wolvesCount').textContent = this.wolvesKilled;
+        
+        // Atualiza informações da onda
+        const waveInfo = document.getElementById('waveInfo');
+        const waveElement = document.getElementById('wave');
+        
+        if (waveInfo && waveElement) {
+            // Mostra o indicador durante a notificação inicial da onda ou notificação de progresso
+            const showWaveIndicator = this.waveNotificationTimer > 0 || this.waveProgressNotificationTimer > 0;
+            
+            if (showWaveIndicator) {
+                // Mostra o elemento
+                if (waveElement.style.display === 'none') {
+                    waveElement.style.display = 'block';
+                    // Pequeno delay para garantir que o display seja aplicado antes do fade
+                    setTimeout(() => {
+                        waveElement.classList.remove('hide');
+                        waveElement.classList.add('show');
+                    }, 10);
+                } else if (!waveElement.classList.contains('show')) {
+                    waveElement.classList.remove('hide');
+                    waveElement.classList.add('show');
+                }
+                
+                // Atualiza o texto
+                if (this.waveState === 'waiting') {
+                    const timeRemaining = this.waveWaitDuration - this.waveTimer;
+                    if (timeRemaining > 0) {
+                        const secondsLeft = Math.ceil(timeRemaining / 1000);
+                        if (this.currentWave === 0) {
+                            waveInfo.textContent = `Preparando... ${secondsLeft}s`;
+                        } else {
+                            waveInfo.textContent = `Onda ${this.currentWave} | Próxima em: ${secondsLeft}s`;
+                        }
+                    } else {
+                        waveInfo.textContent = `Preparando próxima onda...`;
+                    }
+                } else if (this.waveState === 'spawning' || this.waveState === 'active') {
+                    const remaining = this.wolvesToSpawnInWave - this.wolvesSpawnedInWave + this.wolves.length;
+                    waveInfo.textContent = `Onda ${this.currentWave} | Lobos restantes: ${remaining}`;
+                }
+            } else {
+                // Fade out quando não deve mais mostrar
+                if (waveElement.style.display === 'block' && !waveElement.classList.contains('hide')) {
+                    waveElement.classList.remove('show');
+                    waveElement.classList.add('hide');
+                    // Esconde completamente após a animação
+                    setTimeout(() => {
+                        if (this.waveNotificationTimer <= 0 && this.waveProgressNotificationTimer <= 0) {
+                            waveElement.style.display = 'none';
+                        }
+                    }, 500);
+                }
+            }
+        }
         
         // Atualiza barra de cooldown do dash (apenas se não estiver no menu e não for game over)
         if (!this.inMenu && !this.gameOver) {
@@ -1578,6 +1769,18 @@ class Game {
         this.score = 0;
         this.wolvesKilled = 0;
         this.wolfSpawnTimer = 0;
+        
+        // Reseta sistema de ondas
+        this.currentWave = 0;
+        this.waveState = 'preparing';
+        this.waveTimer = 0;
+        this.waveSpawnTimer = 0;
+        this.wolvesToSpawnInWave = 0;
+        this.wolvesSpawnedInWave = 0;
+        this.waveNotificationTimer = 0;
+        this.waveProgressNotificationTimer = 0;
+        this.lastProgressMilestone = 0;
+        
         this.gameOver = false;
         this.house = null;
         this.campfire = null;
@@ -1600,6 +1803,18 @@ class Game {
         this.score = 0;
         this.wolvesKilled = 0;
         this.wolfSpawnTimer = 0;
+        
+        // Reseta sistema de ondas
+        this.currentWave = 0;
+        this.waveState = 'preparing';
+        this.waveTimer = 0;
+        this.waveSpawnTimer = 0;
+        this.wolvesToSpawnInWave = 0;
+        this.wolvesSpawnedInWave = 0;
+        this.waveNotificationTimer = 0;
+        this.waveProgressNotificationTimer = 0;
+        this.lastProgressMilestone = 0;
+        
         this.gameOver = false;
         this.house = null;
         this.campfire = null;
@@ -1615,6 +1830,7 @@ class Game {
         document.getElementById('lives').style.display = 'none';
         document.getElementById('score').style.display = 'none';
         document.getElementById('wolves').style.display = 'none';
+        document.getElementById('wave').style.display = 'none';
         document.getElementById('dashCooldownContainer').style.display = 'none';
         
         // Respawna lobos decorativos

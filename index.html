@@ -96,6 +96,33 @@
             border-radius: 6px;
             border: 2px solid #9b59b6;
         }
+        #wave {
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 20;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        #wave.show {
+            opacity: 1;
+        }
+        #wave.hide {
+            opacity: 0;
+        }
+        #waveDisplay {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 3px solid #e67e22;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
         #dashCooldownContainer {
             position: absolute;
             bottom: 20px;
@@ -282,6 +309,12 @@
             #livesDisplay, #scoreDisplay, #wolvesDisplay {
                 padding: 4px 8px;
             }
+            #wave {
+                font-size: 16px;
+            }
+            #waveDisplay {
+                padding: 6px 12px;
+            }
             #powerupNotification {
                 font-size: 24px;
                 padding: 15px 30px;
@@ -305,6 +338,12 @@
             #lives, #score, #wolves {
                 font-size: 12px;
                 left: 5px;
+            }
+            #wave {
+                font-size: 14px;
+            }
+            #waveDisplay {
+                padding: 5px 10px;
             }
             #lives {
                 top: 5px;
@@ -348,6 +387,9 @@
         </div>
         <div id="wolves">
             <div id="wolvesDisplay">🐺 <span id="wolvesCount">0</span></div>
+        </div>
+        <div id="wave">
+            <div id="waveDisplay">⚔️ <span id="waveInfo">Onda 1</span></div>
         </div>
         <div id="dashCooldownContainer">
             <div id="dashCooldownBar"></div>
