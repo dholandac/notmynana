@@ -13,6 +13,13 @@ class House {
         this.glowTimer = 0;
         this.glowSpeed = 2;
         
+        // Animação de desaparecimento
+        this.isDisappearing = false;
+        this.disappearTimer = 0;
+        this.disappearDuration = 1000; // 1 segundo para desaparecer
+        this.opacity = 1;
+        this.scale = 1;
+        
         // Carrega imagem
         this.image = new Image();
         this.imageLoaded = false;
@@ -29,6 +36,27 @@ class House {
     update(deltaTime) {
         // Atualiza animação de brilho
         this.glowTimer += (deltaTime / 1000) * this.glowSpeed;
+        
+        // Atualiza animação de desaparecimento
+        if (this.isDisappearing) {
+            this.disappearTimer += deltaTime;
+            const progress = Math.min(this.disappearTimer / this.disappearDuration, 1);
+            
+            // Fade out e escala para baixo
+            this.opacity = 1 - progress;
+            this.scale = 1 - (progress * 0.3); // Diminui até 70% do tamanho original
+            
+            // Quando terminar a animação, desativa a casa
+            if (progress >= 1) {
+                this.active = false;
+            }
+        }
+    }
+    
+    startDisappear() {
+        this.isDisappearing = true;
+        this.disappearTimer = 0;
+        this.canEnter = false; // Não pode mais entrar
     }
     
     isColliding(entity) {
@@ -45,8 +73,20 @@ class House {
         
         ctx.save();
         
-        // Efeito de brilho pulsante mais natural
-        if (this.canEnter) {
+        // Aplica opacidade e escala da animação de desaparecimento
+        ctx.globalAlpha = this.opacity;
+        
+        // Calcula o centro para aplicar a escala
+        const centerX = this.x + this.width / 2;
+        const centerY = this.y + this.height / 2;
+        
+        // Move para o centro, aplica escala, e volta
+        ctx.translate(centerX, centerY);
+        ctx.scale(this.scale, this.scale);
+        ctx.translate(-centerX, -centerY);
+        
+        // Efeito de brilho pulsante mais natural (só se não estiver desaparecendo)
+        if (this.canEnter && !this.isDisappearing) {
             const glowIntensity = (Math.sin(this.glowTimer) + 1) / 2; // 0 a 1
             
             // Brilho suave em tons terrosos/dourados

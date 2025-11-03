@@ -5,7 +5,8 @@ class Player {
         this.width = CONFIG.PLAYER_WIDTH;
         this.height = CONFIG.PLAYER_HEIGHT;
         this.speed = CONFIG.PLAYER_SPEED;
-        this.lives = CONFIG.PLAYER_MAX_LIVES;
+        this.maxLives = CONFIG.PLAYER_MAX_LIVES; // Vida máxima
+        this.lives = this.maxLives; // Vida atual começa igual à máxima
         
         this.powerups = {
             fireRate: 1,
@@ -314,9 +315,9 @@ class Player {
                 this.powerups.piercing += 1; // Aumenta o nível de perfuração
                 break;
             case 'HEALTH':
-                // Aumenta vida máxima e cura completamente
-                CONFIG.PLAYER_MAX_LIVES += 1;
-                this.lives = CONFIG.PLAYER_MAX_LIVES;
+                // Aumenta vida máxima em 1 e restaura vida atual para o máximo
+                this.maxLives += 1;
+                this.lives = this.maxLives; // Cura completamente
                 break;
             default:
                 console.warn('Powerup desconhecido:', powerupType);

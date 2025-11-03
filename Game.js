@@ -1,5 +1,21 @@
 // Game.js - Classe principal do jogo
 
+// Polyfill para roundRect (caso o navegador não suporte)
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+        if (width < 2 * radius) radius = width / 2;
+        if (height < 2 * radius) radius = height / 2;
+        this.beginPath();
+        this.moveTo(x + radius, y);
+        this.arcTo(x + width, y, x + width, y + height, radius);
+        this.arcTo(x + width, y + height, x, y + height, radius);
+        this.arcTo(x, y + height, x, y, radius);
+        this.arcTo(x, y, x + width, y, radius);
+        this.closePath();
+        return this;
+    };
+}
+
 class Game {
     constructor(canvas) {
         this.canvas = canvas;
@@ -77,6 +93,11 @@ class Game {
         
         // Sistema de pausa durante notificações
         this.isPaused = false;
+        
+        // Sistema de cura da fogueira
+        this.campfireHealTimer = 0;
+        this.campfireHealRate = 2000; // Cura 1 vida a cada 2 segundos
+        this.campfireHealDistance = 80; // Distância para receber cura
         
         // Inicialização
         this.init();
@@ -810,18 +831,26 @@ class Game {
         // Mantém as partículas de explosão e adiciona as antigas
         this.particles.push(...this.savedWorldState.particles);
         
-        // Remove a casa
-        this.house = null;
-        this.houseSpawned = false;
+        // Inicia animação de desaparecimento da casa
+        if (this.house) {
+            this.house.startDisappear();
+            // A casa será removida automaticamente quando a animação terminar
+        }
         
         // Reseta o contador para a próxima casa spawnar em 10 lobos
         this.wolvesKilledSinceLastHouse = 0;
         
-        // Remove a fogueira
+        // Remove a fogueira e reseta o timer de cura
         this.campfire = null;
+        this.campfireHealTimer = 0;
         
         // Volta ao mapa principal
         this.isInHouse = false;
+        
+        // Restaura a câmera
+        this.camera.x = this.savedWorldState.cameraX;
+        this.camera.y = this.savedWorldState.cameraY;
+        
         this.savedWorldState = null;
     }
     
@@ -1086,8 +1115,14 @@ class Game {
         if (this.house && !this.isInHouse) {
             this.house.update(deltaTime);
             
-            // Verifica se o player entrou na casa
-            if (this.house.isColliding(this.player)) {
+            // Remove a casa se a animação de desaparecimento terminou
+            if (!this.house.active) {
+                this.house = null;
+                this.houseSpawned = false;
+            }
+            
+            // Verifica se o player entrou na casa (só se não estiver desaparecendo)
+            if (this.house && this.house.canEnter && this.house.isColliding(this.player)) {
                 this.enterHouse();
             }
         }
@@ -1095,6 +1130,34 @@ class Game {
         // Atualiza fogueira se estiver dentro da casa
         if (this.campfire && this.isInHouse) {
             this.campfire.update(deltaTime);
+            
+            // Sistema de cura da fogueira
+            const dx = this.player.x - (this.campfire.x + this.campfire.width / 2);
+            const dy = this.player.y - (this.campfire.y + this.campfire.height / 2);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Se jogador está perto da fogueira e não está com vida cheia
+            if (distance <= this.campfireHealDistance && this.player.lives < this.player.maxLives) {
+                this.campfireHealTimer += deltaTime;
+                
+                if (this.campfireHealTimer >= this.campfireHealRate) {
+                    this.campfireHealTimer = 0;
+                    this.player.lives = Math.min(this.player.lives + 1, this.player.maxLives);
+                    
+                    // Efeito visual de cura (partículas verdes)
+                    for (let i = 0; i < 5; i++) {
+                        this.particles.push(new Particle(
+                            this.player.x + this.player.width / 2,
+                            this.player.y + this.player.height / 2,
+                            '#00ff00',
+                            1000
+                        ));
+                    }
+                }
+            } else {
+                // Reset do timer se sair da área ou já estiver com vida cheia
+                this.campfireHealTimer = 0;
+            }
         }
         
         // Verifica se o player quer sair da casa (porta na parte inferior)
@@ -1315,6 +1378,89 @@ class Game {
         // Desenha jogador (não desenha no menu)
         if (!this.inMenu) {
             this.player.draw(this.ctx);
+            
+            // Indicador de cura da fogueira
+            if (this.campfire && this.isInHouse) {
+                const dx = this.player.x - (this.campfire.x + this.campfire.width / 2);
+                const dy = this.player.y - (this.campfire.y + this.campfire.height / 2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance <= this.campfireHealDistance && this.player.lives < this.player.maxLives) {
+                    const progress = this.campfireHealTimer / this.campfireHealRate;
+                    
+                    // Configurações da barra
+                    const barWidth = 60;
+                    const barHeight = 8;
+                    const barX = this.player.x + this.player.width / 2 - barWidth / 2;
+                    const barY = this.player.y - 20;
+                    const borderRadius = 4;
+                    
+                    // Sombra da barra
+                    this.ctx.save();
+                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.shadowBlur = 4;
+                    this.ctx.shadowOffsetX = 0;
+                    this.ctx.shadowOffsetY = 2;
+                    
+                    // Fundo da barra com bordas arredondadas
+                    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(barX, barY, barWidth, barHeight, borderRadius);
+                    this.ctx.fill();
+                    
+                    this.ctx.restore();
+                    
+                    // Gradiente de cura (verde claro para verde escuro)
+                    const gradient = this.ctx.createLinearGradient(barX, barY, barX + barWidth * progress, barY);
+                    gradient.addColorStop(0, '#4ade80'); // Verde claro
+                    gradient.addColorStop(1, '#22c55e'); // Verde médio
+                    
+                    // Barra de progresso com bordas arredondadas
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(barX + 1, barY + 1, (barWidth - 2) * progress, barHeight - 2, borderRadius - 1);
+                    this.ctx.fill();
+                    
+                    // Brilho na barra de progresso
+                    const glowGradient = this.ctx.createLinearGradient(barX, barY, barX, barY + barHeight / 2);
+                    glowGradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+                    glowGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                    this.ctx.fillStyle = glowGradient;
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(barX + 1, barY + 1, (barWidth - 2) * progress, (barHeight - 2) / 2, borderRadius - 1);
+                    this.ctx.fill();
+                    
+                    // Borda da barra com gradiente
+                    const borderGradient = this.ctx.createLinearGradient(barX, barY, barX, barY + barHeight);
+                    borderGradient.addColorStop(0, '#86efac'); // Verde claro
+                    borderGradient.addColorStop(1, '#16a34a'); // Verde escuro
+                    this.ctx.strokeStyle = borderGradient;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.roundRect(barX, barY, barWidth, barHeight, borderRadius);
+                    this.ctx.stroke();
+                    
+                    // Texto de cura com sombra
+                    this.ctx.save();
+                    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                    this.ctx.shadowBlur = 4;
+                    this.ctx.shadowOffsetX = 1;
+                    this.ctx.shadowOffsetY = 1;
+                    
+                    this.ctx.font = 'bold 14px Arial';
+                    this.ctx.fillStyle = '#4ade80';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('❤ Curando...', this.player.x + this.player.width / 2, barY - 6);
+                    
+                    // Efeito de pulso no texto
+                    const pulse = Math.sin(Date.now() / 300) * 0.5 + 0.5;
+                    this.ctx.globalAlpha = 0.3 + pulse * 0.3;
+                    this.ctx.fillStyle = '#86efac';
+                    this.ctx.fillText('❤ Curando...', this.player.x + this.player.width / 2, barY - 6);
+                    
+                    this.ctx.restore();
+                }
+            }
         }
         
         // Desenha árvores (camada superior - na frente do player) (apenas se não estiver dentro da casa)
@@ -1659,7 +1805,8 @@ class Game {
     }
     
     updateUI() {
-        document.getElementById('livesCount').textContent = this.player.lives;
+        // Atualiza vida mostrando atual/máxima
+        document.getElementById('livesCount').textContent = `${this.player.lives}/${this.player.maxLives}`;
         document.getElementById('scoreCount').textContent = this.score;
         document.getElementById('wolvesCount').textContent = this.wolvesKilled;
         
@@ -1860,6 +2007,7 @@ class Game {
         this.gameOver = false;
         this.house = null;
         this.campfire = null;
+        this.campfireHealTimer = 0;
         this.houseSpawned = false;
         this.isInHouse = false;
         this.savedWorldState = null;
@@ -1894,6 +2042,7 @@ class Game {
         this.gameOver = false;
         this.house = null;
         this.campfire = null;
+        this.campfireHealTimer = 0;
         this.houseSpawned = false;
         this.isInHouse = false;
         this.savedWorldState = null;
