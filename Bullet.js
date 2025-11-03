@@ -7,6 +7,16 @@ class Bullet {
         this.owner = owner;
         this.active = true;
         
+        // Carrega o sprite do pirulito
+        if (!Bullet.pirulitoSprite) {
+            Bullet.pirulitoSprite = new Image();
+            Bullet.pirulitoSprite.src = 'assets/pirulito.png';
+        }
+        this.sprite = Bullet.pirulitoSprite;
+        
+        // Calcula o ângulo de rotação baseado na direção
+        this.angle = Math.atan2(dirY, dirX);
+        
         if (owner === 'player' && powerups) {
             this.width = CONFIG.BULLET_WIDTH * powerups.bulletSize;
             this.height = CONFIG.BULLET_HEIGHT * powerups.bulletSize;
@@ -44,21 +54,31 @@ class Bullet {
     draw(ctx) {
         const radius = Math.max(this.width, this.height) / 2;
         
-        ctx.fillStyle = CONFIG.COLORS.BULLET;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
-        ctx.fill();
+        // Desenha o sprite do pirulito
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        // Ajusta a rotação para que a cabeça do pirulito aponte na direção do tiro
+        // Adiciona 90 graus (PI/2) para alinhar corretamente
+        ctx.rotate(this.angle + Math.PI / 2);
         
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.beginPath();
-        ctx.arc(this.x - radius * 0.3, this.y - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
-        ctx.fill();
+        // Desenha o pirulito centralizado (triplicado o tamanho)
+        const size = radius * 2 * 3; // Triplicado
+        if (this.sprite.complete) {
+            ctx.drawImage(this.sprite, -size / 2, -size / 2, size, size);
+        } else {
+            // Fallback para círculo se a imagem não carregou
+            ctx.fillStyle = CONFIG.COLORS.BULLET;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
+        // Efeito de perfuração (anéis coloridos)
         if (this.piercing) {
             ctx.strokeStyle = 'rgba(255, 100, 100, 0.8)';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, radius + 2, 0, Math.PI * 2);
+            ctx.arc(0, 0, radius + 2, 0, Math.PI * 2);
             ctx.stroke();
             
             // Mostra o nível de perfuração com anéis adicionais
@@ -67,11 +87,13 @@ class Bullet {
                     ctx.strokeStyle = `rgba(255, ${100 - i * 20}, ${100 - i * 20}, ${0.6 - i * 0.1})`;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.arc(this.x, this.y, radius + 2 + i * 3, 0, Math.PI * 2);
+                    ctx.arc(0, 0, radius + 2 + i * 3, 0, Math.PI * 2);
                     ctx.stroke();
                 }
             }
         }
+        
+        ctx.restore();
     }
     
     canHitEnemy(enemy) {

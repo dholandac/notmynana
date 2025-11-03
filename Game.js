@@ -48,7 +48,7 @@ class Game {
         this.currentWave = 0;
         this.waveState = 'preparing'; // 'preparing', 'spawning', 'active', 'waiting'
         this.waveTimer = 0;
-        this.waveWaitDuration = 15000; // 15 segundos entre ondas
+        this.waveWaitDuration = 10000; // 10 segundos entre ondas
         this.waveSpawnTimer = 0;
         this.waveSpawnRate = 1500; // Spawna um lobo a cada 1.5 segundos durante a onda
         this.wolvesToSpawnInWave = 0;
@@ -99,9 +99,9 @@ class Game {
         // Cria caixas de munição pelo mapa
         this.spawnCrates();
         
-        // Aguarda 5 segundos antes de iniciar a primeira onda
-        this.waveState = 'waiting';
-        this.waveTimer = -5000; // Começa negativo para esperar 5 segundos
+        // Aguarda apenas 10 segundos antes de iniciar a primeira onda
+        this.waveState = 'preparing';
+        this.waveTimer = -10000; // Começa negativo para esperar 10 segundos
     }
     
     repositionPlayerIfInLake() {
@@ -505,14 +505,44 @@ class Game {
         this.waveNotificationTimer = this.waveNotificationDuration;
         this.isPaused = true; // Pausa o jogo durante a notificação
         
-        // Calcula quantos lobos spawnar nesta onda
-        // Começa com 5 lobos na onda 1 e aumenta progressivamente
-        this.wolvesToSpawnInWave = 5 + (this.currentWave - 1) * 3;
+        // Calcula quantos lobos spawnar nesta onda com progressão mais desafiadora
+        // Sistema de ondas expandido com diferentes padrões
+        let wolvesCount;
+        
+        if (this.currentWave <= 5) {
+            // Ondas 1-5: Progressão suave (5, 8, 11, 14, 17)
+            wolvesCount = 5 + (this.currentWave - 1) * 3;
+        } else if (this.currentWave <= 10) {
+            // Ondas 6-10: Progressão moderada (20, 24, 28, 32, 36)
+            wolvesCount = 20 + (this.currentWave - 6) * 4;
+        } else if (this.currentWave <= 15) {
+            // Ondas 11-15: Progressão acelerada (40, 45, 50, 55, 60)
+            wolvesCount = 40 + (this.currentWave - 11) * 5;
+        } else if (this.currentWave <= 20) {
+            // Ondas 16-20: Hordas massivas (70, 80, 90, 100, 110)
+            wolvesCount = 70 + (this.currentWave - 16) * 10;
+        } else {
+            // Onda 21+: Modo survival extremo (120, 135, 150, 165...)
+            wolvesCount = 120 + (this.currentWave - 21) * 15;
+        }
+        
+        this.wolvesToSpawnInWave = wolvesCount;
         this.wolvesSpawnedInWave = 0;
         this.waveSpawnTimer = 0;
         this.lastProgressMilestone = 0; // Reset do progresso
         
-        console.log(`Onda ${this.currentWave} iniciada! ${this.wolvesToSpawnInWave} lobos.`);
+        // Ajusta a taxa de spawn baseado na onda para manter o jogo fluido
+        if (this.currentWave <= 10) {
+            this.waveSpawnRate = 1500; // 1.5s entre spawns
+        } else if (this.currentWave <= 15) {
+            this.waveSpawnRate = 1200; // 1.2s entre spawns
+        } else if (this.currentWave <= 20) {
+            this.waveSpawnRate = 1000; // 1s entre spawns
+        } else {
+            this.waveSpawnRate = 800; // 0.8s entre spawns
+        }
+        
+        console.log(`Onda ${this.currentWave} iniciada! ${this.wolvesToSpawnInWave} lobos (spawn rate: ${this.waveSpawnRate}ms).`);
     }
     
     updateWaveSystem(deltaTime) {
@@ -528,6 +558,15 @@ class Game {
                 this.isPaused = false;
             }
             return;
+        }
+        
+        // Estado: preparing - preparando para iniciar a primeira onda
+        if (this.waveState === 'preparing') {
+            this.waveTimer += deltaTime;
+            
+            if (this.waveTimer >= 0) {
+                this.startWave();
+            }
         }
         
         // Estado: spawning - spawnando lobos da onda
@@ -841,7 +880,10 @@ class Game {
             return;
         }
         
-        if (this.gameOver) return;
+        if (this.gameOver) {
+            this.updateUI(); // Atualiza UI mesmo no game over
+            return;
+        }
         
         // Atualiza timer de flash de dano
         if (this.damageFlashTime > 0) {
@@ -958,6 +1000,8 @@ class Game {
         // Verifica progresso da onda após remover lobos mortos
         if (wolvesBeforeRemoval > this.wolves.length && (this.waveState === 'spawning' || this.waveState === 'active')) {
             this.checkWaveProgress();
+            // Mostra a barra de informações quando um lobo é morto
+            this.waveProgressNotificationTimer = this.waveProgressNotificationDuration;
         }
         
         // Atualiza boss wolf (apenas se não estiver pausado e não dentro da casa)
@@ -1619,33 +1663,59 @@ class Game {
         document.getElementById('scoreCount').textContent = this.score;
         document.getElementById('wolvesCount').textContent = this.wolvesKilled;
         
+        // Não atualiza informações de onda se estiver no menu
+        if (this.inMenu) return;
+        
         // Atualiza informações da onda
         const waveInfo = document.getElementById('waveInfo');
         const waveElement = document.getElementById('wave');
         
+        console.log('UpdateUI - Estado:', this.waveState, 'Timer:', this.waveTimer, 'CurrentWave:', this.currentWave);
+        
         if (waveInfo && waveElement) {
-            // Mostra o indicador durante a notificação inicial da onda ou notificação de progresso
-            const showWaveIndicator = this.waveNotificationTimer > 0 || this.waveProgressNotificationTimer > 0;
+            // Mostra o indicador durante a notificação inicial da onda, notificação de progresso, durante a onda ativa (spawning/active), ou durante o período de espera
+            const showWaveIndicator = this.waveNotificationTimer > 0 || 
+                                     this.waveProgressNotificationTimer > 0 ||
+                                     this.waveState === 'preparing' ||
+                                     this.waveState === 'spawning' || 
+                                     this.waveState === 'active' ||
+                                     this.waveState === 'waiting';
+            
+            console.log('ShowWaveIndicator:', showWaveIndicator, 'Display:', waveElement.style.display, 'Classes:', waveElement.classList.toString());
             
             if (showWaveIndicator) {
                 // Mostra o elemento
-                if (waveElement.style.display === 'none') {
+                // Verifica tanto style inline quanto computed style
+                const isHidden = waveElement.style.display === 'none' || 
+                                window.getComputedStyle(waveElement).display === 'none';
+                
+                if (isHidden) {
                     waveElement.style.display = 'block';
+                    console.log('Mudando display para block');
                     // Pequeno delay para garantir que o display seja aplicado antes do fade
                     setTimeout(() => {
                         waveElement.classList.remove('hide');
                         waveElement.classList.add('show');
+                        console.log('Adicionando classe show');
                     }, 10);
                 } else if (!waveElement.classList.contains('show')) {
                     waveElement.classList.remove('hide');
                     waveElement.classList.add('show');
+                    console.log('Adicionando classe show (já estava visível)');
                 }
                 
                 // Atualiza o texto
-                if (this.waveState === 'waiting') {
+                if (this.waveState === 'preparing') {
+                    const actualTimeRemaining = Math.abs(this.waveTimer);
+                    const secondsLeft = Math.ceil(actualTimeRemaining / 1000);
+                    waveInfo.textContent = `Preparando... ${secondsLeft}s`;
+                } else if (this.waveState === 'waiting') {
                     const timeRemaining = this.waveWaitDuration - this.waveTimer;
-                    if (timeRemaining > 0) {
-                        const secondsLeft = Math.ceil(timeRemaining / 1000);
+                    // Se o timer ainda é negativo (antes da primeira onda), ajusta o cálculo
+                    const actualTimeRemaining = this.waveTimer < 0 ? Math.abs(this.waveTimer) : timeRemaining;
+                    
+                    if (actualTimeRemaining > 0) {
+                        const secondsLeft = Math.ceil(actualTimeRemaining / 1000);
                         if (this.currentWave === 0) {
                             waveInfo.textContent = `Preparando... ${secondsLeft}s`;
                         } else {
@@ -1665,7 +1735,13 @@ class Game {
                     waveElement.classList.add('hide');
                     // Esconde completamente após a animação
                     setTimeout(() => {
-                        if (this.waveNotificationTimer <= 0 && this.waveProgressNotificationTimer <= 0) {
+                        // Só esconde se não estiver em nenhum estado de onda
+                        if (this.waveNotificationTimer <= 0 && 
+                            this.waveProgressNotificationTimer <= 0 &&
+                            this.waveState !== 'preparing' &&
+                            this.waveState !== 'spawning' && 
+                            this.waveState !== 'active' &&
+                            this.waveState !== 'waiting') {
                             waveElement.style.display = 'none';
                         }
                     }, 500);
