@@ -107,12 +107,33 @@ window.addEventListener('DOMContentLoaded', () => {
         const width = dimensions.width;
         const height = dimensions.height;
         
+        // Detecta se é mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
         // Atualiza CONFIG
         CONFIG.CANVAS_WIDTH = width;
         CONFIG.CANVAS_HEIGHT = height;
         
         canvas.width = width;
         canvas.height = height;
+        
+        // Se for mobile, aplica escala CSS para caber na tela
+        if (isMobile) {
+            const screenWidth = window.innerWidth || document.documentElement.clientWidth;
+            const screenHeight = window.innerHeight || document.documentElement.clientHeight;
+            
+            // Calcula escala necessária para caber na tela
+            const scaleX = screenWidth / width;
+            const scaleY = screenHeight / height;
+            const scale = Math.min(scaleX, scaleY);
+            
+            // Aplica transformação CSS
+            canvas.style.transform = `scale(${scale})`;
+            canvas.style.transformOrigin = 'center center';
+        } else {
+            // Remove transformação no desktop
+            canvas.style.transform = '';
+        }
         
         // Atualiza a câmera com as novas dimensões
         if (game.camera) {
