@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         if (isMobile) {
-            // MOBILE: Usa dimensões exatas da tela para ocupar toda a área disponível
+            // MOBILE: Usa dimensões maiores que a tela para dar mais visão ao jogador
             let screenWidth = window.innerWidth || document.documentElement.clientWidth;
             let screenHeight = window.innerHeight || document.documentElement.clientHeight;
             
@@ -28,17 +28,17 @@ window.addEventListener('DOMContentLoaded', () => {
                 screenHeight = window.visualViewport.height;
             }
             
-            // Fator de zoom para dar mais visão ao jogador (0.75 = 75% do tamanho = mais zoom out)
-            const zoomFactor = 0.75;
+            // Fator de zoom para dar mais visão ao jogador (1.5 = 150% de área visível)
+            const zoomFactor = 1.5;
             
-            // Em dispositivos mobile landscape, usa tela completa com ajuste de zoom
+            // Em dispositivos mobile landscape, usa dimensões aumentadas para zoom out
             if (screenWidth > screenHeight) {
                 return { 
                     width: Math.floor(screenWidth * zoomFactor), 
                     height: Math.floor(screenHeight * zoomFactor) 
                 };
             } else {
-                // Portrait - força landscape trocando dimensões com ajuste de zoom
+                // Portrait - força landscape trocando dimensões com zoom out
                 return { 
                     width: Math.floor(screenHeight * zoomFactor), 
                     height: Math.floor(screenWidth * zoomFactor) 
