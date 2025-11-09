@@ -28,12 +28,21 @@ window.addEventListener('DOMContentLoaded', () => {
                 screenHeight = window.visualViewport.height;
             }
             
-            // Em dispositivos mobile landscape, usa tela completa
+            // Fator de zoom para dar mais visão ao jogador (0.75 = 75% do tamanho = mais zoom out)
+            const zoomFactor = 0.75;
+            
+            // Em dispositivos mobile landscape, usa tela completa com ajuste de zoom
             if (screenWidth > screenHeight) {
-                return { width: Math.floor(screenWidth), height: Math.floor(screenHeight) };
+                return { 
+                    width: Math.floor(screenWidth * zoomFactor), 
+                    height: Math.floor(screenHeight * zoomFactor) 
+                };
             } else {
-                // Portrait - força landscape trocando dimensões
-                return { width: Math.floor(screenHeight), height: Math.floor(screenWidth) };
+                // Portrait - força landscape trocando dimensões com ajuste de zoom
+                return { 
+                    width: Math.floor(screenHeight * zoomFactor), 
+                    height: Math.floor(screenWidth * zoomFactor) 
+                };
             }
         } else {
             // DESKTOP: Usa área disponível com margens confortáveis
@@ -161,12 +170,19 @@ window.addEventListener('DOMContentLoaded', () => {
             if (!firstInteraction) {
                 firstInteraction = true;
                 
-                // Força scroll para esconder barra de endereço
+                // Força scroll para esconder barra de endereço (funciona em alguns navegadores)
                 window.scrollTo(0, 1);
                 setTimeout(() => {
                     window.scrollTo(0, 0);
+                }, 50);
+                
+                // Aguarda um pouco mais antes de redimensionar
+                setTimeout(() => {
                     resizeCanvas();
-                }, 100);
+                    // Tenta esconder barra novamente
+                    window.scrollTo(0, 1);
+                    setTimeout(() => window.scrollTo(0, 0), 50);
+                }, 200);
                 
                 // Tenta entrar em fullscreen
                 const elem = document.documentElement;
@@ -188,6 +204,16 @@ window.addEventListener('DOMContentLoaded', () => {
         
         document.addEventListener('touchstart', enableFullscreen);
         document.addEventListener('click', enableFullscreen);
+        
+        // Adiciona listener para scroll que força retorno ao topo (esconde barra de URL)
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                window.scrollTo(0, 1);
+                setTimeout(() => window.scrollTo(0, 0), 50);
+            }, 100);
+        }, { passive: true });
     }
     
     window.addEventListener('keydown', (e) => {
