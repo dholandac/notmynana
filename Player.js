@@ -105,7 +105,18 @@ class Player {
         });
     }
     
-    update(deltaTime) {
+    // Método helper para verificar teclas (incluindo mobile)
+    isKeyPressed(key, mobileControls = null) {
+        // Verifica teclado físico
+        const keyboardPressed = this.keys[key] || this.keys[key.toLowerCase()];
+        
+        // Verifica controles mobile se disponível
+        const mobilePressed = mobileControls ? mobileControls.isKeyPressed(key) : false;
+        
+        return keyboardPressed || mobilePressed;
+    }
+    
+    update(deltaTime, mobileControls = null) {
         if (this.shootCooldown > 0) {
             this.shootCooldown -= deltaTime;
         }
@@ -118,15 +129,15 @@ class Player {
         }
         
         // Atualiza dash
-        const dashParticles = this.updateDash(deltaTime);
+        const dashParticles = this.updateDash(deltaTime, mobileControls);
         
         // Atualiza timer de partículas de movimento
         if (this.movementParticleTimer > 0) {
             this.movementParticleTimer -= deltaTime;
         }
         
-        if (this.keys[' ']) {
-            const shootResult = this.shoot();
+        if (this.isKeyPressed(' ', mobileControls)) {
+            const shootResult = this.shoot(mobileControls);
             if (dashParticles.length > 0) {
                 shootResult.particles.push(...dashParticles);
             }
@@ -145,22 +156,22 @@ class Player {
         let horizontal = '';
         let vertical = '';
         
-        if (this.keys['w'] || this.keys['arrowup']) {
+        if (this.isKeyPressed('w', mobileControls) || this.isKeyPressed('arrowup', mobileControls)) {
             this.vy = -this.speed;
             vertical = 'cima';
             moving = true;
         }
-        if (this.keys['s'] || this.keys['arrowdown']) {
+        if (this.isKeyPressed('s', mobileControls) || this.isKeyPressed('arrowdown', mobileControls)) {
             this.vy = this.speed;
             vertical = 'baixo';
             moving = true;
         }
-        if (this.keys['a'] || this.keys['arrowleft']) {
+        if (this.isKeyPressed('a', mobileControls) || this.isKeyPressed('arrowleft', mobileControls)) {
             this.vx = -this.speed;
             horizontal = 'esq';
             moving = true;
         }
-        if (this.keys['d'] || this.keys['arrowright']) {
+        if (this.isKeyPressed('d', mobileControls) || this.isKeyPressed('arrowright', mobileControls)) {
             this.vx = this.speed;
             horizontal = 'dir';
             moving = true;
@@ -244,16 +255,16 @@ class Player {
         return createMovementParticles(footX, footY, CONFIG.COLORS.GROUND);
     }
     
-    shoot() {
+    shoot(mobileControls = null) {
         if (this.shootCooldown <= 0) {
             this.shootCooldown = this.shootCooldownTime;
             
             let dirX = 0, dirY = 0;
             
-            const movingUp = this.keys['w'] || this.keys['arrowup'];
-            const movingDown = this.keys['s'] || this.keys['arrowdown'];
-            const movingLeft = this.keys['a'] || this.keys['arrowleft'];
-            const movingRight = this.keys['d'] || this.keys['arrowright'];
+            const movingUp = this.isKeyPressed('w', mobileControls) || this.isKeyPressed('arrowup', mobileControls);
+            const movingDown = this.isKeyPressed('s', mobileControls) || this.isKeyPressed('arrowdown', mobileControls);
+            const movingLeft = this.isKeyPressed('a', mobileControls) || this.isKeyPressed('arrowleft', mobileControls);
+            const movingRight = this.isKeyPressed('d', mobileControls) || this.isKeyPressed('arrowright', mobileControls);
             
             if (movingUp && !movingDown) dirY = -1;
             if (movingDown && !movingUp) dirY = 1;
@@ -467,7 +478,17 @@ class Player {
         this.dashParticleTimer = 0;
     }
     
-    updateDash(deltaTime) {
+    updateDash(deltaTime, mobileControls = null) {
+        // Verifica se o dash foi acionado (teclado ou mobile)
+        const dashPressed = this.isKeyPressed('shift', mobileControls);
+        
+        if (!this.isDashing && dashPressed) {
+            const currentTime = Date.now();
+            if (currentTime - this.lastDashTime >= this.dashCooldown) {
+                this.startDash(currentTime);
+            }
+        }
+        
         if (!this.isDashing) {
             return [];
         }

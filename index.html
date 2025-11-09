@@ -378,6 +378,105 @@
                 padding: 12px 25px;
             }
         }
+        
+        /* Mobile Controls */
+        #mobileControls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 250px;
+            z-index: 100;
+            display: none;
+            pointer-events: none;
+        }
+        
+        #mobileControls.active {
+            display: block;
+        }
+        
+        .mobile-joystick {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            pointer-events: all;
+        }
+        
+        .joystick-base {
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0.3), rgba(0,0,0,0.5));
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            position: relative;
+        }
+        
+        .joystick-stick {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8), rgba(200,200,200,0.6));
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        .mobile-buttons {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            pointer-events: all;
+        }
+        
+        .mobile-button {
+            width: 70px;
+            height: 70px;
+            background: radial-gradient(circle, rgba(255,100,100,0.7), rgba(200,50,50,0.6));
+            border: 3px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            cursor: pointer;
+            user-select: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: all 0.1s ease;
+        }
+        
+        .mobile-button:active {
+            transform: scale(0.9);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        
+        .mobile-button.shoot {
+            background: radial-gradient(circle, rgba(255,150,50,0.7), rgba(220,100,30,0.6));
+        }
+        
+        .mobile-button.dash {
+            background: radial-gradient(circle, rgba(52,152,219,0.7), rgba(40,120,180,0.6));
+        }
+        
+        .mobile-button.interact {
+            background: radial-gradient(circle, rgba(100,200,100,0.7), rgba(50,150,50,0.6));
+        }
+        
+        @media (max-width: 768px) {
+            #mobileControls.active {
+                display: block;
+            }
+        }
     </style>
 </head>
 <body>
@@ -417,10 +516,25 @@
             <div id="dashCooldownBar"></div>
         </div>
         <div id="powerupNotification"></div>
+        
+        <!-- Mobile Controls -->
+        <div id="mobileControls">
+            <div class="mobile-joystick" id="joystick">
+                <div class="joystick-base">
+                    <div class="joystick-stick" id="joystickStick"></div>
+                </div>
+            </div>
+            <div class="mobile-buttons">
+                <button class="mobile-button shoot" id="shootButton">🔫</button>
+                <button class="mobile-button dash" id="dashButton">⚡</button>
+                <button class="mobile-button interact" id="interactButton">✋</button>
+            </div>
+        </div>
     </div>
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="AudioManager.js"></script>
+    <script src="MobileControls.js"></script>
     <script src="Particle.js"></script>
     <script src="Coin.js"></script>
     <script src="House.js"></script>
@@ -439,3 +553,4 @@
     <script src="main.js"></script>
 </body>
 </html>
+

@@ -56,6 +56,9 @@ class Game {
         // Gera padrão de fundo uma vez só
         this.generateGroundPattern();
         
+        // Controles mobile
+        this.mobileControls = new MobileControls();
+        
         // Câmera
         this.camera = new Camera(
             CONFIG.WORLD_WIDTH,
@@ -1111,7 +1114,7 @@ class Game {
             const prevY = this.player.y;
             
             // Atualiza jogador e verifica se criou um bullet e/ou partículas
-            const playerResult = this.player.update(deltaTime);
+            const playerResult = this.player.update(deltaTime, this.mobileControls);
             if (playerResult.bullet) {
                 this.bullets.push(playerResult.bullet);
             }
@@ -1396,8 +1399,11 @@ class Game {
         if (this.dog && this.isInHouse) {
             this.dog.update(deltaTime);
             
-            // Verifica se o jogador quer comprar o cachorro
-            if (this.dog.isPlayerNear(this.player) && this.player.keys[' '] && !this.dogPurchaseProcessed) {
+            // Verifica se o jogador quer comprar o cachorro (espaço ou botão de interagir mobile)
+            const interactPressed = this.player.isKeyPressed(' ', this.mobileControls) || 
+                                   this.player.isKeyPressed('e', this.mobileControls);
+            
+            if (this.dog.isPlayerNear(this.player) && interactPressed && !this.dogPurchaseProcessed) {
                 if (this.dog.purchase(this)) {
                     console.log('Cachorro comprado!');
                     
@@ -1423,7 +1429,7 @@ class Game {
             }
             
             // Reset da flag quando soltar a tecla
-            if (!this.player.keys[' ']) {
+            if (!interactPressed) {
                 this.dogPurchaseProcessed = false;
             }
         }
