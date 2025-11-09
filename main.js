@@ -10,37 +10,60 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // Função para obter dimensões ideais da tela
     function getScreenDimensions() {
+        // Detecta se é mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
         // Obtém dimensões da tela disponível
-        const screenWidth = window.innerWidth || document.documentElement.clientWidth;
-        const screenHeight = window.innerHeight || document.documentElement.clientHeight;
+        let screenWidth = window.innerWidth || document.documentElement.clientWidth;
+        let screenHeight = window.innerHeight || document.documentElement.clientHeight;
+        
+        // Em mobile, usa dimensões exatas da tela
+        if (isMobile) {
+            screenWidth = window.screen.availWidth || screenWidth;
+            screenHeight = window.screen.availHeight || screenHeight;
+            
+            // Remove qualquer barra de endereço considerada
+            if (window.visualViewport) {
+                screenWidth = window.visualViewport.width;
+                screenHeight = window.visualViewport.height;
+            }
+        }
         
         // Define proporção do jogo (16:9 é ideal para landscape)
         const gameAspectRatio = 16 / 9;
         
         let canvasWidth, canvasHeight;
         
-        // Calcula dimensões para preencher a tela mantendo proporção
-        const screenAspectRatio = screenWidth / screenHeight;
-        
-        if (screenAspectRatio > gameAspectRatio) {
-            // Tela é mais larga que o jogo - usa altura total
-            canvasHeight = screenHeight;
-            canvasWidth = Math.floor(canvasHeight * gameAspectRatio);
-        } else {
-            // Tela é mais alta que o jogo - usa largura total
+        // Em dispositivos mobile landscape, usa tela completa
+        if (isMobile && screenWidth > screenHeight) {
             canvasWidth = screenWidth;
-            canvasHeight = Math.floor(canvasWidth / gameAspectRatio);
+            canvasHeight = screenHeight;
+        } else {
+            // Calcula dimensões para preencher a tela mantendo proporção
+            const screenAspectRatio = screenWidth / screenHeight;
+            
+            if (screenAspectRatio > gameAspectRatio) {
+                // Tela é mais larga que o jogo - usa altura total
+                canvasHeight = screenHeight;
+                canvasWidth = Math.floor(canvasHeight * gameAspectRatio);
+            } else {
+                // Tela é mais alta que o jogo - usa largura total
+                canvasWidth = screenWidth;
+                canvasHeight = Math.floor(canvasWidth / gameAspectRatio);
+            }
+            
+            // Garante dimensões mínimas apenas em desktop
+            if (!isMobile) {
+                canvasWidth = Math.max(canvasWidth, 800);
+                canvasHeight = Math.max(canvasHeight, 450);
+            }
+            
+            // Garante dimensões máximas
+            canvasWidth = Math.min(canvasWidth, 1920);
+            canvasHeight = Math.min(canvasHeight, 1080);
         }
         
-        // Garante dimensões mínimas
-        canvasWidth = Math.max(canvasWidth, 800);
-        canvasHeight = Math.max(canvasHeight, 450);
-        
-        // Garante dimensões máximas
-        canvasWidth = Math.min(canvasWidth, 1920);
-        canvasHeight = Math.min(canvasHeight, 1080);
-        
-        return { width: canvasWidth, height: canvasHeight };
+        return { width: Math.floor(canvasWidth), height: Math.floor(canvasHeight) };
     }
     
     // Atualiza CONFIG com dimensões da tela
@@ -93,14 +116,38 @@ window.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
     
+    // Listener para visualViewport (mobile - barra de endereço)
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                resizeCanvas();
+            }, 100);
+        });
+    }
+    
     // Detecta dispositivo móvel e tenta entrar em fullscreen ao tocar na tela
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     if (isMobile) {
+        // Previne scroll/bounce em iOS
+        document.body.addEventListener('touchmove', (e) => {
+            if (e.target === document.body) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
         let firstInteraction = false;
         
         const enableFullscreen = () => {
             if (!firstInteraction) {
                 firstInteraction = true;
+                
+                // Força scroll para esconder barra de endereço
+                window.scrollTo(0, 1);
+                setTimeout(() => {
+                    window.scrollTo(0, 0);
+                    resizeCanvas();
+                }, 100);
                 
                 // Tenta entrar em fullscreen
                 const elem = document.documentElement;

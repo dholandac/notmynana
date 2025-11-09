@@ -1068,7 +1068,13 @@ class Game {
     startGame() {
         this.inMenu = false;
         document.getElementById('menuScreen').classList.add('hidden');
-        document.getElementById('logo').style.display = 'block';
+        
+        // Mostra logo apenas em desktop (não em mobile)
+        const isMobile = this.mobileControls && this.mobileControls.isMobile;
+        if (!isMobile) {
+            document.getElementById('logo').style.display = 'block';
+        }
+        
         document.getElementById('lives').style.display = 'block';
         document.getElementById('score').style.display = 'block';
         document.getElementById('coins').style.display = 'block';
