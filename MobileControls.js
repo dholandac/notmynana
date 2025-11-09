@@ -7,6 +7,7 @@ class MobileControls {
         
         // Estado dos controles
         this.joystickActive = false;
+        this.joystickTouchId = null; // Rastreia qual toque controla o joystick
         this.joystickStartX = 0;
         this.joystickStartY = 0;
         this.joystickDeltaX = 0;
@@ -63,7 +64,13 @@ class MobileControls {
         // Touch start
         this.joystick.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const touch = e.touches[0];
+            
+            // Se o joystick já está ativo, ignora novos toques
+            if (this.joystickActive) return;
+            
+            const touch = e.changedTouches[0];
+            this.joystickTouchId = touch.identifier;
+            
             const rect = this.joystick.getBoundingClientRect();
             
             this.joystickActive = true;
@@ -78,19 +85,38 @@ class MobileControls {
             e.preventDefault();
             if (!this.joystickActive) return;
             
-            const touch = e.touches[0];
-            this.updateJoystick(touch.clientX, touch.clientY);
+            // Procura o toque específico do joystick
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier === this.joystickTouchId) {
+                    this.updateJoystick(e.touches[i].clientX, e.touches[i].clientY);
+                    break;
+                }
+            }
         }, { passive: false });
         
         // Touch end
         this.joystick.addEventListener('touchend', (e) => {
             e.preventDefault();
-            this.resetJoystick();
+            
+            // Verifica se o toque que terminou é o do joystick
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === this.joystickTouchId) {
+                    this.resetJoystick();
+                    break;
+                }
+            }
         }, { passive: false });
         
         this.joystick.addEventListener('touchcancel', (e) => {
             e.preventDefault();
-            this.resetJoystick();
+            
+            // Verifica se o toque cancelado é o do joystick
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === this.joystickTouchId) {
+                    this.resetJoystick();
+                    break;
+                }
+            }
         }, { passive: false });
     }
     
@@ -125,6 +151,7 @@ class MobileControls {
     
     resetJoystick() {
         this.joystickActive = false;
+        this.joystickTouchId = null;
         this.joystickDeltaX = 0;
         this.joystickDeltaY = 0;
         

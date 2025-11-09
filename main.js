@@ -13,12 +13,12 @@ window.addEventListener('DOMContentLoaded', () => {
         // Detecta se é mobile
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
-        // Obtém dimensões da tela disponível
-        let screenWidth = window.innerWidth || document.documentElement.clientWidth;
-        let screenHeight = window.innerHeight || document.documentElement.clientHeight;
-        
-        // Em mobile, usa dimensões exatas da tela
         if (isMobile) {
+            // MOBILE: Usa dimensões exatas da tela para ocupar toda a área disponível
+            let screenWidth = window.innerWidth || document.documentElement.clientWidth;
+            let screenHeight = window.innerHeight || document.documentElement.clientHeight;
+            
+            // Em mobile, usa dimensões exatas da tela
             screenWidth = window.screen.availWidth || screenWidth;
             screenHeight = window.screen.availHeight || screenHeight;
             
@@ -27,18 +27,24 @@ window.addEventListener('DOMContentLoaded', () => {
                 screenWidth = window.visualViewport.width;
                 screenHeight = window.visualViewport.height;
             }
-        }
-        
-        // Define proporção do jogo (16:9 é ideal para landscape)
-        const gameAspectRatio = 16 / 9;
-        
-        let canvasWidth, canvasHeight;
-        
-        // Em dispositivos mobile landscape, usa tela completa
-        if (isMobile && screenWidth > screenHeight) {
-            canvasWidth = screenWidth;
-            canvasHeight = screenHeight;
+            
+            // Em dispositivos mobile landscape, usa tela completa
+            if (screenWidth > screenHeight) {
+                return { width: Math.floor(screenWidth), height: Math.floor(screenHeight) };
+            } else {
+                // Portrait - força landscape trocando dimensões
+                return { width: Math.floor(screenHeight), height: Math.floor(screenWidth) };
+            }
         } else {
+            // DESKTOP: Comportamento original - mantém proporção 16:9
+            let screenWidth = window.innerWidth || document.documentElement.clientWidth;
+            let screenHeight = window.innerHeight || document.documentElement.clientHeight;
+            
+            // Define proporção do jogo (16:9 é ideal para landscape)
+            const gameAspectRatio = 16 / 9;
+            
+            let canvasWidth, canvasHeight;
+            
             // Calcula dimensões para preencher a tela mantendo proporção
             const screenAspectRatio = screenWidth / screenHeight;
             
@@ -52,18 +58,16 @@ window.addEventListener('DOMContentLoaded', () => {
                 canvasHeight = Math.floor(canvasWidth / gameAspectRatio);
             }
             
-            // Garante dimensões mínimas apenas em desktop
-            if (!isMobile) {
-                canvasWidth = Math.max(canvasWidth, 800);
-                canvasHeight = Math.max(canvasHeight, 450);
-            }
+            // Garante dimensões mínimas
+            canvasWidth = Math.max(canvasWidth, 800);
+            canvasHeight = Math.max(canvasHeight, 450);
             
             // Garante dimensões máximas
             canvasWidth = Math.min(canvasWidth, 1920);
             canvasHeight = Math.min(canvasHeight, 1080);
+            
+            return { width: Math.floor(canvasWidth), height: Math.floor(canvasHeight) };
         }
-        
-        return { width: Math.floor(canvasWidth), height: Math.floor(canvasHeight) };
     }
     
     // Atualiza CONFIG com dimensões da tela

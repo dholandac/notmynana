@@ -9,6 +9,7 @@ class Camera {
         this.canvasWidth = canvasWidth;
         this.canvasHeight = canvasHeight;
         this.smoothing = 0.1;
+        this.initialized = false; // Flag para primeira inicialização
     }
     
     follow(target) {
@@ -16,9 +17,16 @@ class Camera {
         const desiredX = target.x + target.width / 2 - this.canvasWidth / 2;
         const desiredY = target.y + target.height / 2 - this.canvasHeight / 2;
         
-        // Suaviza o movimento da câmera
-        this.x += (desiredX - this.x) * this.smoothing;
-        this.y += (desiredY - this.y) * this.smoothing;
+        // Se é a primeira vez, posiciona a câmera diretamente sem suavização
+        if (!this.initialized) {
+            this.x = desiredX;
+            this.y = desiredY;
+            this.initialized = true;
+        } else {
+            // Suaviza o movimento da câmera
+            this.x += (desiredX - this.x) * this.smoothing;
+            this.y += (desiredY - this.y) * this.smoothing;
+        }
         
         // Limita a câmera aos limites do mundo
         this.x = clamp(this.x, 0, this.worldWidth - this.canvasWidth);
@@ -31,6 +39,11 @@ class Camera {
     
     reset(ctx) {
         ctx.translate(this.x, this.y);
+    }
+    
+    resetPosition() {
+        // Reseta a flag de inicialização para forçar reposicionamento instantâneo
+        this.initialized = false;
     }
     
     worldToScreen(worldPos) {

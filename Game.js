@@ -1069,11 +1069,11 @@ class Game {
         this.inMenu = false;
         document.getElementById('menuScreen').classList.add('hidden');
         
-        // Mostra logo apenas em desktop (não em mobile)
-        const isMobile = this.mobileControls && this.mobileControls.isMobile;
-        if (!isMobile) {
-            document.getElementById('logo').style.display = 'block';
-        }
+        // Reseta a câmera para centralizar no player imediatamente
+        this.camera.resetPosition();
+        
+        // Mostra logo sempre
+        document.getElementById('logo').style.display = 'block';
         
         document.getElementById('lives').style.display = 'block';
         document.getElementById('score').style.display = 'block';
@@ -2377,6 +2377,7 @@ class Game {
     backToMenu() {
         // Reseta o jogo
         this.player = new Player(CONFIG.WORLD_WIDTH / 2, CONFIG.WORLD_HEIGHT / 2);
+        this.camera.resetPosition(); // Reseta posição da câmera
         this.wolves = [];
         this.bossWolf = null;
         this.bossSpawned = false;
