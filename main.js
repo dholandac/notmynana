@@ -127,12 +127,18 @@ window.addEventListener('DOMContentLoaded', () => {
             const scaleY = screenHeight / height;
             const scale = Math.min(scaleX, scaleY);
             
-            // Aplica transformação CSS
-            canvas.style.transform = `scale(${scale})`;
+            // Aplica transformação CSS para escalar e centralizar
+            canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
             canvas.style.transformOrigin = 'center center';
+            canvas.style.position = 'absolute';
+            canvas.style.top = '50%';
+            canvas.style.left = '50%';
         } else {
             // Remove transformação no desktop
             canvas.style.transform = '';
+            canvas.style.position = '';
+            canvas.style.top = '';
+            canvas.style.left = '';
         }
         
         // Atualiza a câmera com as novas dimensões
@@ -143,7 +149,7 @@ window.addEventListener('DOMContentLoaded', () => {
             game.camera.initialized = false;
         }
         
-        console.log(`Canvas redimensionado: ${width}x${height}`);
+        console.log(`Canvas redimensionado: ${width}x${height}${isMobile ? ` (escala: ${scale.toFixed(2)})` : ''}`);
     }
     
     // Redimensiona inicialmente
