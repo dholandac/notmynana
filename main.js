@@ -36,35 +36,44 @@ window.addEventListener('DOMContentLoaded', () => {
                 return { width: Math.floor(screenHeight), height: Math.floor(screenWidth) };
             }
         } else {
-            // DESKTOP: Comportamento original - mantém proporção 16:9
+            // DESKTOP: Usa área disponível com margens confortáveis
             let screenWidth = window.innerWidth || document.documentElement.clientWidth;
             let screenHeight = window.innerHeight || document.documentElement.clientHeight;
+            
+            // Margem para desktop - 40px de cada lado (80px total horizontal)
+            const horizontalMargin = 80;
+            // Margem vertical - 80px top/bottom (160px total vertical) para dar espaço para a logo
+            const verticalMargin = 160;
             
             // Define proporção do jogo (16:9 é ideal para landscape)
             const gameAspectRatio = 16 / 9;
             
             let canvasWidth, canvasHeight;
             
-            // Calcula dimensões para preencher a tela mantendo proporção
-            const screenAspectRatio = screenWidth / screenHeight;
+            // Área disponível com margens
+            const availableWidth = screenWidth - horizontalMargin;
+            const availableHeight = screenHeight - verticalMargin;
+            
+            // Calcula dimensões para preencher a área disponível mantendo proporção
+            const screenAspectRatio = availableWidth / availableHeight;
             
             if (screenAspectRatio > gameAspectRatio) {
-                // Tela é mais larga que o jogo - usa altura total
-                canvasHeight = screenHeight;
+                // Tela é mais larga que o jogo - usa altura disponível
+                canvasHeight = availableHeight;
                 canvasWidth = Math.floor(canvasHeight * gameAspectRatio);
             } else {
-                // Tela é mais alta que o jogo - usa largura total
-                canvasWidth = screenWidth;
+                // Tela é mais alta que o jogo - usa largura disponível
+                canvasWidth = availableWidth;
                 canvasHeight = Math.floor(canvasWidth / gameAspectRatio);
             }
             
-            // Garante dimensões mínimas
-            canvasWidth = Math.max(canvasWidth, 800);
-            canvasHeight = Math.max(canvasHeight, 450);
+            // Garante dimensões mínimas para desktop
+            canvasWidth = Math.max(canvasWidth, 1000);
+            canvasHeight = Math.max(canvasHeight, 562);
             
-            // Garante dimensões máximas
-            canvasWidth = Math.min(canvasWidth, 1920);
-            canvasHeight = Math.min(canvasHeight, 1080);
+            // Garante dimensões máximas otimizadas para desktop
+            canvasWidth = Math.min(canvasWidth, 1600);
+            canvasHeight = Math.min(canvasHeight, 900);
             
             return { width: Math.floor(canvasWidth), height: Math.floor(canvasHeight) };
         }
@@ -74,6 +83,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const screenDimensions = getScreenDimensions();
     CONFIG.CANVAS_WIDTH = screenDimensions.width;
     CONFIG.CANVAS_HEIGHT = screenDimensions.height;
+    
+    // Define as dimensões do canvas antes de criar o jogo
+    canvas.width = CONFIG.CANVAS_WIDTH;
+    canvas.height = CONFIG.CANVAS_HEIGHT;
     
     console.log(`Canvas dimensões: ${CONFIG.CANVAS_WIDTH}x${CONFIG.CANVAS_HEIGHT}`);
     
@@ -94,8 +107,10 @@ window.addEventListener('DOMContentLoaded', () => {
         
         // Atualiza a câmera com as novas dimensões
         if (game.camera) {
-            game.camera.viewportWidth = width;
-            game.camera.viewportHeight = height;
+            game.camera.canvasWidth = width;
+            game.camera.canvasHeight = height;
+            // Força recálculo da posição da câmera para centralizar corretamente
+            game.camera.initialized = false;
         }
         
         console.log(`Canvas redimensionado: ${width}x${height}`);

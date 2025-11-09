@@ -1,9 +1,11 @@
 const CONFIG = {
     get CANVAS_WIDTH() {
-        return Math.min(window.innerWidth - 40, 1200);
+        // Para desktop, usa uma largura mais generosa com margem de 80px total
+        return Math.min(window.innerWidth - 80, 1600);
     },
     get CANVAS_HEIGHT() {
-        return Math.min(window.innerHeight - 120, 800);
+        // Para desktop, usa altura com margem de 160px total para dar espaço para a logo
+        return Math.min(window.innerHeight - 160, 900);
     },
     
     WORLD_WIDTH: 2400,
