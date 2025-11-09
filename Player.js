@@ -58,6 +58,9 @@ class Player {
         this.bounceSpeed = 12; // Velocidade do pulo (quanto maior, mais rápido)
         this.bounceHeight = 4; // Altura do pulo em pixels (menor que o lobo)
         this.bounceOffset = 0; // Offset vertical atual
+        
+        // Sistema de som de passos
+        this.lastBouncePhase = 0; // Fase anterior do bounce (para detectar quando o pé toca o chão)
     }
     
     loadImages() {
@@ -203,14 +206,24 @@ class Player {
         
         // Atualiza animação de pulinhos quando está se movendo
         if (moving) {
+            const previousOffset = this.bounceOffset; // Guarda o offset anterior
+            
             this.bounceTimer += deltaTime / 1000; // Converte para segundos
             this.bounceOffset = Math.abs(Math.sin(this.bounceTimer * this.bounceSpeed)) * this.bounceHeight;
+            
+            // Detecta quando o pé toca o chão (bounceOffset volta a ser muito pequeno após estar alto)
+            // Toca o som quando o offset estava alto (> 1.5) e agora está baixo (< 1.5)
+            if (previousOffset > 1.5 && this.bounceOffset <= 1.5) {
+                // Toca o som de passo
+                audioManager.play('step');
+            }
         } else {
             // Quando parado, reseta o bounce suavemente
             this.bounceOffset *= 0.8;
             if (this.bounceOffset < 0.1) {
                 this.bounceOffset = 0;
                 this.bounceTimer = 0;
+                this.lastBouncePhase = 0;
             }
         }
         
@@ -290,6 +303,9 @@ class Player {
                 this.powerups
             );
             
+            // Toca o som de tiro
+            audioManager.play('tap');
+            
             return { bullet: bullet, particles: [] };
         }
         return { bullet: null, particles: [] };
@@ -315,9 +331,8 @@ class Player {
                 this.powerups.piercing += 1; // Aumenta o nível de perfuração
                 break;
             case 'HEALTH':
-                // Aumenta vida máxima em 1 e restaura vida atual para o máximo
+                // Aumenta vida máxima em 1 (sem curar)
                 this.maxLives += 1;
-                this.lives = this.maxLives; // Cura completamente
                 break;
             default:
                 console.warn('Powerup desconhecido:', powerupType);
@@ -334,6 +349,10 @@ class Player {
             this.lives--;
             this.invulnerable = true;
             this.invulnerabilityTime = this.invulnerabilityDuration;
+            
+            // Toca o som de dano
+            audioManager.play('hurt');
+            
             return true;
         }
         return false;
@@ -397,6 +416,9 @@ class Player {
         this.dashStartTime = currentTime;
         this.lastDashTime = currentTime;
         this.dashRotation = 0; // Reseta rotação
+        
+        // Toca o som de dash
+        audioManager.play('jump');
         
         // Calcula direção do dash baseado no movimento atual
         let dirX = 0, dirY = 0;

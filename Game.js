@@ -38,9 +38,13 @@ class Game {
         this.trees = [];
         this.rocks = [];
         this.particles = []; // Sistema de partículas
-        this.coins = []; // Sistema de moedas
+        this.coinObjects = []; // Array de objetos de moeda no mundo
         this.house = null; // Casa que aparece após matar lobos
         this.campfire = null; // Fogueira dentro da casa
+        this.dog = null; // Cachorro comprável dentro da casa
+        this.petDogs = []; // Array de cachorros pets do jogador
+        this.dogsPurchased = 0; // Contador de cachorros comprados (para aumentar o preço)
+        this.baseDogPrice = 300; // Preço base do cachorro
         
         // Sistema de mapa/transição
         this.isInHouse = false;
@@ -74,11 +78,15 @@ class Game {
         this.waveProgressNotificationTimer = 0;
         this.waveProgressNotificationDuration = 2000; // 2 segundos para notificações de progresso
         this.lastProgressMilestone = 0; // Último marco de progresso mostrado (25%, 50%, 75%)
+        this.isBossWave = false; // Flag para identificar ondas de boss
         
         // Score
-        this.score = 0;
+        this.score = 0; // Score real que não pode ser gasto
+        this.coins = 0; // Moedas que podem ser gastas (renomeado de score)
         this.wolvesKilled = 0;
         this.bossSpawned = false; // Flag para controlar se o boss já foi spawnado
+        this.bossesDefeated = 0; // Contador de bosses derrotados
+        this.bossWaveInterval = 5; // Boss aparece a cada 5 ondas
         
         // Boss notification
         this.bossNotificationTimer = 0;
@@ -99,9 +107,26 @@ class Game {
         this.campfireHealRate = 2000; // Cura 1 vida a cada 2 segundos
         this.campfireHealDistance = 80; // Distância para receber cura
         
+        // Flag para controlar compra do cachorro
+        this.dogPurchaseProcessed = false;
+        
+        // Flag para controlar se a música do menu já foi iniciada
+        this.menuMusicStarted = false;
+        
         // Inicialização
         this.init();
         this.setupMenuControls();
+        this.setupCanvasClickListener();
+    }
+    
+    setupCanvasClickListener() {
+        // Inicia a música do menu quando o canvas for clicado
+        this.canvas.addEventListener('click', () => {
+            if (!this.menuMusicStarted && this.inMenu) {
+                audioManager.playMusic('menu', true);
+                this.menuMusicStarted = true;
+            }
+        }, { once: false }); // Permite múltiplos cliques (caso necessário)
     }
     
     init() {
@@ -449,17 +474,21 @@ class Game {
     }
     
     spawnCrates() {
+        const minDistanceBetweenCrates = 200; // Distância mínima entre caixas
+        
         for (let i = 0; i < CONFIG.CRATE_COUNT; i++) {
             let x, y;
             let attempts = 0;
             let valid = false;
             
-            // Tenta encontrar posição que não seja em cima de um lago
+            // Tenta encontrar posição que não seja em cima de um lago e longe de outras caixas
             do {
                 x = randomRange(100, CONFIG.WORLD_WIDTH - 100);
                 y = randomRange(100, CONFIG.WORLD_HEIGHT - 100);
                 
                 valid = true;
+                
+                // Verifica colisão com lagos
                 for (let lake of this.lakes) {
                     if (lake.isColliding({ x, y, width: CONFIG.CRATE_WIDTH, height: CONFIG.CRATE_HEIGHT })) {
                         valid = false;
@@ -467,8 +496,22 @@ class Game {
                     }
                 }
                 
+                // Verifica distância de outras caixas
+                if (valid) {
+                    for (let crate of this.crates) {
+                        const dx = (x + CONFIG.CRATE_WIDTH / 2) - (crate.x + crate.width / 2);
+                        const dy = (y + CONFIG.CRATE_HEIGHT / 2) - (crate.y + crate.height / 2);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < minDistanceBetweenCrates) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                
                 attempts++;
-            } while (!valid && attempts < 50);
+            } while (!valid && attempts < 100); // Aumentado número de tentativas
             
             if (valid) {
                 this.crates.push(new Crate(x, y));
@@ -505,6 +548,36 @@ class Game {
         this.wolves.push(new Wolf(x, y));
     }
     
+    spawnMinionWolf() {
+        if (this.wolves.length >= CONFIG.MAX_WOLVES) return;
+        
+        // Spawna nas bordas do mapa (estilo Vampire Survivors)
+        let x, y;
+        const side = randomInt(0, 3); // 0=cima, 1=direita, 2=baixo, 3=esquerda
+        
+        switch(side) {
+            case 0: // Cima
+                x = randomRange(0, CONFIG.WORLD_WIDTH);
+                y = randomRange(-50, 0);
+                break;
+            case 1: // Direita
+                x = randomRange(CONFIG.WORLD_WIDTH, CONFIG.WORLD_WIDTH + 50);
+                y = randomRange(0, CONFIG.WORLD_HEIGHT);
+                break;
+            case 2: // Baixo
+                x = randomRange(0, CONFIG.WORLD_WIDTH);
+                y = randomRange(CONFIG.WORLD_HEIGHT, CONFIG.WORLD_HEIGHT + 50);
+                break;
+            case 3: // Esquerda
+                x = randomRange(-50, 0);
+                y = randomRange(0, CONFIG.WORLD_HEIGHT);
+                break;
+        }
+        
+        // Cria lobo capanga com aura vermelha
+        this.wolves.push(new Wolf(x, y, true));
+    }
+    
     spawnCoins(x, y, minCoins, maxCoins) {
         // Spawna moedas em posições aleatórias ao redor do ponto de morte
         const coinCount = randomInt(minCoins, maxCoins);
@@ -516,7 +589,7 @@ class Game {
             const coinX = x + Math.cos(angle) * distance;
             const coinY = y + Math.sin(angle) * distance;
             
-            this.coins.push(new Coin(coinX, coinY));
+            this.coinObjects.push(new Coin(coinX, coinY));
         }
     }
     
@@ -526,44 +599,55 @@ class Game {
         this.waveNotificationTimer = this.waveNotificationDuration;
         this.isPaused = true; // Pausa o jogo durante a notificação
         
-        // Calcula quantos lobos spawnar nesta onda com progressão mais desafiadora
-        // Sistema de ondas expandido com diferentes padrões
-        let wolvesCount;
+        // Verifica se é uma onda de boss (a cada 5 ondas)
+        this.isBossWave = (this.currentWave % this.bossWaveInterval === 0);
         
-        if (this.currentWave <= 5) {
-            // Ondas 1-5: Progressão suave (5, 8, 11, 14, 17)
-            wolvesCount = 5 + (this.currentWave - 1) * 3;
-        } else if (this.currentWave <= 10) {
-            // Ondas 6-10: Progressão moderada (20, 24, 28, 32, 36)
-            wolvesCount = 20 + (this.currentWave - 6) * 4;
-        } else if (this.currentWave <= 15) {
-            // Ondas 11-15: Progressão acelerada (40, 45, 50, 55, 60)
-            wolvesCount = 40 + (this.currentWave - 11) * 5;
-        } else if (this.currentWave <= 20) {
-            // Ondas 16-20: Hordas massivas (70, 80, 90, 100, 110)
-            wolvesCount = 70 + (this.currentWave - 16) * 10;
+        if (this.isBossWave) {
+            // Onda de Boss: Boss + lobos capangas
+            const minionsCount = 5 + Math.floor(this.bossesDefeated / 2) * 2; // Aumenta capangas com progresso
+            this.wolvesToSpawnInWave = minionsCount; // Apenas os capangas na contagem de spawn
+            this.waveSpawnRate = 800; // Spawn mais rápido para a onda de boss
+            console.log(`Onda ${this.currentWave} BOSS iniciada! Boss + ${minionsCount} capangas`);
         } else {
-            // Onda 21+: Modo survival extremo (120, 135, 150, 165...)
-            wolvesCount = 120 + (this.currentWave - 21) * 15;
+            // Onda normal: apenas lobos
+            let wolvesCount;
+            
+            if (this.currentWave <= 5) {
+                // Ondas 1-5: Progressão suave (5, 8, 11, 14, 17)
+                wolvesCount = 5 + (this.currentWave - 1) * 3;
+            } else if (this.currentWave <= 10) {
+                // Ondas 6-10: Progressão moderada (20, 24, 28, 32, 36)
+                wolvesCount = 20 + (this.currentWave - 6) * 4;
+            } else if (this.currentWave <= 15) {
+                // Ondas 11-15: Progressão acelerada (40, 45, 50, 55, 60)
+                wolvesCount = 40 + (this.currentWave - 11) * 5;
+            } else if (this.currentWave <= 20) {
+                // Ondas 16-20: Hordas massivas (70, 80, 90, 100, 110)
+                wolvesCount = 70 + (this.currentWave - 16) * 10;
+            } else {
+                // Onda 21+: Modo survival extremo (120, 135, 150, 165...)
+                wolvesCount = 120 + (this.currentWave - 21) * 15;
+            }
+            
+            this.wolvesToSpawnInWave = wolvesCount;
+            
+            // Ajusta a taxa de spawn baseado na onda para manter o jogo fluido
+            if (this.currentWave <= 10) {
+                this.waveSpawnRate = 1500; // 1.5s entre spawns
+            } else if (this.currentWave <= 15) {
+                this.waveSpawnRate = 1200; // 1.2s entre spawns
+            } else if (this.currentWave <= 20) {
+                this.waveSpawnRate = 1000; // 1s entre spawns
+            } else {
+                this.waveSpawnRate = 800; // 0.8s entre spawns
+            }
+            
+            console.log(`Onda ${this.currentWave} iniciada! ${this.wolvesToSpawnInWave} lobos (spawn rate: ${this.waveSpawnRate}ms).`);
         }
         
-        this.wolvesToSpawnInWave = wolvesCount;
         this.wolvesSpawnedInWave = 0;
         this.waveSpawnTimer = 0;
         this.lastProgressMilestone = 0; // Reset do progresso
-        
-        // Ajusta a taxa de spawn baseado na onda para manter o jogo fluido
-        if (this.currentWave <= 10) {
-            this.waveSpawnRate = 1500; // 1.5s entre spawns
-        } else if (this.currentWave <= 15) {
-            this.waveSpawnRate = 1200; // 1.2s entre spawns
-        } else if (this.currentWave <= 20) {
-            this.waveSpawnRate = 1000; // 1s entre spawns
-        } else {
-            this.waveSpawnRate = 800; // 0.8s entre spawns
-        }
-        
-        console.log(`Onda ${this.currentWave} iniciada! ${this.wolvesToSpawnInWave} lobos (spawn rate: ${this.waveSpawnRate}ms).`);
     }
     
     updateWaveSystem(deltaTime) {
@@ -595,12 +679,20 @@ class Game {
             this.waveSpawnTimer += deltaTime;
             
             if (this.waveSpawnTimer >= this.waveSpawnRate && this.wolvesSpawnedInWave < this.wolvesToSpawnInWave) {
-                this.spawnWolf();
+                // Spawna lobo capanga do boss se for onda de boss
+                if (this.isBossWave) {
+                    this.spawnMinionWolf();
+                } else {
+                    this.spawnWolf();
+                }
                 this.wolvesSpawnedInWave++;
                 this.waveSpawnTimer = 0;
                 
-                // Se spawnou todos os lobos, muda para estado ativo
+                // Se spawnou todos os lobos, spawna o boss (se for onda de boss) e muda para estado ativo
                 if (this.wolvesSpawnedInWave >= this.wolvesToSpawnInWave) {
+                    if (this.isBossWave) {
+                        this.spawnBoss();
+                    }
                     this.waveState = 'active';
                     console.log('Todos os lobos da onda foram spawnados!');
                 }
@@ -613,6 +705,16 @@ class Game {
             if (this.wolves.length === 0 && !this.bossWolf) {
                 this.waveState = 'waiting';
                 this.waveTimer = 0;
+                
+                // Toca o som de power_up quando a onda é concluída
+                audioManager.play('power_up');
+                
+                // Spawna 3 novas caixas de power up após completar a onda
+                const previousCrateCount = CONFIG.CRATE_COUNT;
+                CONFIG.CRATE_COUNT = 3;
+                this.spawnCrates();
+                CONFIG.CRATE_COUNT = previousCrateCount; // Restaura valor original
+                
                 console.log('Onda completada! Aguardando próxima onda...');
             }
         }
@@ -683,11 +785,23 @@ class Game {
         }
         
         this.bossWolf = new BossWolf(x, y);
+        
+        // Aplica escalamento progressivo baseado em quantos bosses já foram derrotados
+        const scalingFactor = 1 + (this.bossesDefeated * 0.3); // +30% por boss derrotado
+        this.bossWolf.maxHealth = Math.floor(CONFIG.BOSS_HEALTH * scalingFactor);
+        this.bossWolf.health = this.bossWolf.maxHealth;
+        this.bossWolf.speed = CONFIG.BOSS_SPEED * (1 + this.bossesDefeated * 0.1); // +10% velocidade
+        
         this.bossSpawned = true;
         this.bossNotificationTimer = this.bossNotificationDuration;
-        this.isPaused = true; // Pausa o jogo durante notificação do boss
         
-        console.log('Boss Wolf spawnou!');
+        // Toca o som de spawn do boss
+        audioManager.play('wolf_boss_spawn');
+        
+        // Inicia a música de batalha do boss
+        audioManager.playMusic('wolf_boss_battle', true);
+        
+        console.log(`Boss Wolf spawnou! Nível ${this.bossesDefeated + 1} - HP: ${this.bossWolf.health}, Speed: ${this.bossWolf.speed.toFixed(2)}`);
     }
     
     spawnHouse() {
@@ -749,6 +863,9 @@ class Game {
     enterHouse() {
         console.log('Entrando na casa...');
         
+        // Pausa a música de fundo
+        audioManager.pauseMusic();
+        
         // Salva o estado do mundo atual (incluindo câmera)
         this.savedWorldState = {
             playerX: this.player.x,
@@ -757,8 +874,9 @@ class Game {
             bossWolf: this.bossWolf,
             bullets: [...this.bullets],
             crates: [...this.crates],
-            coins: [...this.coins],
+            coins: [...this.coinObjects],
             particles: [...this.particles],
+            petDogs: [...this.petDogs], // Salva os pets
             houseX: this.house.x,
             houseY: this.house.y,
             cameraX: this.camera.x,
@@ -769,11 +887,15 @@ class Game {
         this.wolves = [];
         this.bossWolf = null;
         this.bullets = [];
-        this.coins = [];
+        this.coinObjects = [];
         this.particles = [];
         
         // Cria o mapa interno da casa (pequeno, 5x5 árvores aproximadamente)
         this.isInHouse = true;
+        
+        // Troca a música para a música da casa
+        audioManager.stopMusic();
+        audioManager.playMusic('forgotten_biomes', true);
         
         // Define tamanho do mapa interno (pequeno)
         this.houseMapWidth = 400; // Cerca de 5 árvores de largura
@@ -791,6 +913,15 @@ class Game {
         this.campfire = new Campfire(
             offsetX + this.houseMapWidth / 2 - 25,
             offsetY + this.houseMapHeight / 2 - 25
+        );
+        
+        // Cria cachorro acima da fogueira com preço escalonado
+        const dogPrice = this.baseDogPrice + (this.dogsPurchased * 200); // Aumenta 200 moedas a cada cachorro
+        this.dog = new Dog(
+            offsetX + this.houseMapWidth / 2 - 20,
+            offsetY + this.houseMapHeight / 2 - 100, // Acima da fogueira
+            dogPrice,
+            false // Não é pet, é para venda
         );
     }
     
@@ -827,7 +958,9 @@ class Game {
         this.bossWolf = this.savedWorldState.bossWolf;
         this.bullets = this.savedWorldState.bullets;
         this.crates = this.savedWorldState.crates;
-        this.coins = this.savedWorldState.coins;
+        this.coinObjects = this.savedWorldState.coins;
+        // Mantém os pets que estavam fora + os novos comprados dentro da casa
+        // (não restaura do estado salvo para manter os novos)
         // Mantém as partículas de explosão e adiciona as antigas
         this.particles.push(...this.savedWorldState.particles);
         
@@ -844,6 +977,13 @@ class Game {
         this.campfire = null;
         this.campfireHealTimer = 0;
         
+        // Remove o cachorro
+        this.dog = null;
+        
+        // Para a música da casa e retoma a música do jogo
+        audioManager.stopMusic();
+        audioManager.playMusic('retro_forest', true);
+        
         // Volta ao mapa principal
         this.isInHouse = false;
         
@@ -859,13 +999,53 @@ class Game {
         const instructionsButton = document.getElementById('instructionsButton');
         const creditsButton = document.getElementById('creditsButton');
         
-        playButton.addEventListener('click', () => this.startGame());
+        // Adiciona som de hover para todos os botões
+        const buttons = [playButton, instructionsButton, creditsButton];
+        buttons.forEach(button => {
+            let hasPlayed = false; // Flag para tocar o som apenas uma vez ao entrar
+            
+            button.addEventListener('mouseenter', () => {
+                // Inicia a música do menu na primeira interação
+                if (!this.menuMusicStarted) {
+                    audioManager.playMusic('menu', true);
+                    this.menuMusicStarted = true;
+                }
+                
+                if (!hasPlayed) {
+                    audioManager.play('select');
+                    hasPlayed = true;
+                }
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                hasPlayed = false; // Reseta a flag quando sai do botão
+            });
+        });
+        
+        playButton.addEventListener('click', () => {
+            audioManager.play('confirm');
+            this.startGame();
+        });
         
         instructionsButton.addEventListener('click', () => {
+            // Inicia a música do menu na primeira interação (se ainda não iniciou)
+            if (!this.menuMusicStarted) {
+                audioManager.playMusic('menu', true);
+                this.menuMusicStarted = true;
+            }
+            
+            audioManager.play('confirm');
             alert('INSTRUÇÕES:\n\nWASD ou Setas - Mover\nEspaço - Atirar\nR - Reiniciar (quando Game Over)\n\nSobreviva aos lobos e colete powerups das caixas!');
         });
         
         creditsButton.addEventListener('click', () => {
+            // Inicia a música do menu na primeira interação (se ainda não iniciou)
+            if (!this.menuMusicStarted) {
+                audioManager.playMusic('menu', true);
+                this.menuMusicStarted = true;
+            }
+            
+            audioManager.play('confirm');
             alert('CRÉDITOS:\n\nNot My Nana\nDesenvolvido com ❤️');
         });
         
@@ -888,8 +1068,13 @@ class Game {
         document.getElementById('logo').style.display = 'block';
         document.getElementById('lives').style.display = 'block';
         document.getElementById('score').style.display = 'block';
+        document.getElementById('coins').style.display = 'block';
         document.getElementById('wolves').style.display = 'block';
         // Indicador de onda é controlado dinamicamente no updateUI
+        
+        // Para a música do menu e inicia a música de fundo principal
+        audioManager.stopMusic();
+        audioManager.playMusic('retro_forest', true);
     }
     
     update(deltaTime) {
@@ -1011,6 +1196,10 @@ class Game {
                     this.damageFlashTime = this.damageFlashDuration; // Ativa flash vermelho
                     if (this.player.lives <= 0) {
                         this.gameOver = true;
+                        
+                        // Pausa a música de fundo e toca o som de game over com volume reduzido
+                        audioManager.pauseMusic();
+                        audioManager.play('game_over', 0.5); // 50% do volume
                     }
                 }
             }
@@ -1033,6 +1222,39 @@ class Game {
             this.waveProgressNotificationTimer = this.waveProgressNotificationDuration;
         }
         
+        // Atualiza pets (cachorros) - sempre, exceto dentro da casa
+        if (!this.isInHouse && !this.isPaused) {
+            this.petDogs.forEach(pet => {
+                const obstacles = [...this.lakes, ...this.trees];
+                const result = pet.update(deltaTime, this.player, this.wolves, obstacles);
+                
+                if (result) {
+                    // Se é um array, é o formato antigo (só partículas)
+                    if (Array.isArray(result)) {
+                        this.particles.push(...result);
+                    }
+                    // Se é um objeto, é o novo formato (com partículas e killedWolf)
+                    else if (typeof result === 'object') {
+                        // Processa partículas
+                        if (result.particles && Array.isArray(result.particles)) {
+                            this.particles.push(...result.particles);
+                        }
+                        
+                        // Processa lobo morto
+                        if (result.killedWolf) {
+                            const wolf = result.killedWolf;
+                            // Dropa moedas
+                            this.spawnCoins(wolf.x + wolf.width / 2, wolf.y + wolf.height / 2, 2, 3);
+                            this.wolvesKilled++;
+                            this.wolvesKilledSinceLastHouse++;
+                            // Adiciona score por matar lobo
+                            this.score += 100;
+                        }
+                    }
+                }
+            });
+        }
+        
         // Atualiza boss wolf (apenas se não estiver pausado e não dentro da casa)
         if (this.bossWolf && !this.isPaused && !this.isInHouse) {
             const prevBossX = this.bossWolf.x;
@@ -1044,6 +1266,10 @@ class Game {
                 // Callback quando boss destrói uma árvore
                 if (tree.active) {
                     tree.active = false;
+                    
+                    // Toca o som de explosão quando o boss derruba a árvore (70% do volume)
+                    audioManager.play('explosion', 0.7);
+                    
                     // Cria partículas de destruição
                     const destroyParticles = createTreeHitParticles(
                         tree.x + tree.width / 2, 
@@ -1082,6 +1308,10 @@ class Game {
                     this.damageFlashTime = this.damageFlashDuration;
                     if (this.player.lives <= 0) {
                         this.gameOver = true;
+                        
+                        // Pausa a música de fundo e toca o som de game over com volume reduzido
+                        audioManager.pauseMusic();
+                        audioManager.play('game_over', 0.5); // 50% do volume
                     }
                 }
             }
@@ -1090,6 +1320,13 @@ class Game {
             if (this.bossWolf.health < 0) {
                 this.bossWolf = null;
                 this.bossSpawned = false; // Permite spawnar outro boss futuramente
+                this.bossesDefeated++; // Incrementa contador de bosses derrotados
+                
+                // Para a música de batalha do boss e retoma a música de fundo
+                audioManager.stopMusic();
+                audioManager.playMusic('retro_forest', true);
+                
+                console.log(`Boss derrotado! Total de bosses derrotados: ${this.bossesDefeated}`);
             }
         }
         
@@ -1099,11 +1336,6 @@ class Game {
             if (this.bossNotificationTimer <= 0) {
                 this.isPaused = false; // Despausa quando a notificação do boss termina
             }
-        }
-        
-        // Verifica se deve spawnar o boss (apenas no mapa principal)
-        if (!this.bossSpawned && !this.isInHouse && this.wolvesKilled >= CONFIG.BOSS_SPAWN_KILLS) {
-            this.spawnBoss();
         }
         
         // Verifica se deve spawnar a casa (apenas no mapa principal, a cada 10 lobos)
@@ -1157,6 +1389,42 @@ class Game {
             } else {
                 // Reset do timer se sair da área ou já estiver com vida cheia
                 this.campfireHealTimer = 0;
+            }
+        }
+        
+        // Atualiza cachorro se estiver dentro da casa
+        if (this.dog && this.isInHouse) {
+            this.dog.update(deltaTime);
+            
+            // Verifica se o jogador quer comprar o cachorro
+            if (this.dog.isPlayerNear(this.player) && this.player.keys[' '] && !this.dogPurchaseProcessed) {
+                if (this.dog.purchase(this)) {
+                    console.log('Cachorro comprado!');
+                    
+                    // Cria um pet na posição do mundo (não na posição da casa)
+                    // Usa savedWorldState para pegar a posição real do player no mundo
+                    const worldX = this.savedWorldState ? this.savedWorldState.playerX : this.player.x;
+                    const worldY = this.savedWorldState ? this.savedWorldState.playerY : this.player.y;
+                    
+                    const newPet = new Dog(
+                        worldX + this.player.width + 10, // Ao lado direito do player no mundo
+                        worldY, // Na mesma altura no mundo
+                        0, // Preço não importa para pets
+                        true // É um pet
+                    );
+                    this.petDogs.push(newPet);
+                    
+                    // Incrementa contador para próximo preço
+                    this.dogsPurchased++;
+                    
+                    console.log(`Você agora tem ${this.petDogs.length} cachorro(s)!`);
+                }
+                this.dogPurchaseProcessed = true;
+            }
+            
+            // Reset da flag quando soltar a tecla
+            if (!this.player.keys[' ']) {
+                this.dogPurchaseProcessed = false;
             }
         }
         
@@ -1221,6 +1489,12 @@ class Game {
                             this.spawnCoins(wolf.x + wolf.width / 2, wolf.y + wolf.height / 2, 2, 3);
                             this.wolvesKilled++;
                             this.wolvesKilledSinceLastHouse++; // Incrementa contador para próxima casa
+                            
+                            // Adiciona score por matar lobo
+                            this.score += 100;
+                            
+                            // Toca o som de morte do lobo
+                            audioManager.play('wolf_dead');
                         }
                         // Marca que atingiu este inimigo (método markEnemyHit controla se a bala desativa)
                         bullet.markEnemyHit(wolf);
@@ -1236,6 +1510,12 @@ class Game {
                             this.spawnCoins(this.bossWolf.x + this.bossWolf.width / 2, this.bossWolf.y + this.bossWolf.height / 2, 8, 12);
                             this.wolvesKilled += 5; // Conta como 5 lobos
                             this.wolvesKilledSinceLastHouse += 5; // Incrementa contador para próxima casa
+                            
+                            // Adiciona score por matar boss (vale mais!)
+                            this.score += 1000;
+                            
+                            // Toca o som de morte do lobo boss
+                            audioManager.play('wolf_dead');
                         }
                         // Marca que atingiu o boss (método markEnemyHit controla se a bala desativa)
                         bullet.markEnemyHit(this.bossWolf);
@@ -1261,30 +1541,86 @@ class Game {
         this.particles = this.particles.filter(particle => particle.active);
         
         // Atualiza moedas
-        this.coins.forEach(coin => {
+        this.coinObjects.forEach(coin => {
             const result = coin.update(deltaTime, this.player);
             if (result.collected) {
-                this.score += result.value;
+                this.coins += result.value; // Adiciona moedas (podem ser gastas)
+                // Não adiciona ao score quando coleta moedas
             }
         });
         
         // Remove moedas inativas
-        this.coins = this.coins.filter(coin => coin.active);
+        this.coinObjects = this.coinObjects.filter(coin => coin.active);
+        
+        // Atualiza caixas
+        this.crates.forEach(crate => crate.update(deltaTime));
+        
+        // Verifica colisão de balas com caixas
+        this.bullets.forEach(bullet => {
+            this.crates.forEach(crate => {
+                if (crate.active && !crate.broken && crate.isCollidingWithBullet(bullet)) {
+                    const breakResult = crate.break();
+                    if (breakResult && breakResult.createParticles) {
+                        // Cria partículas da caixa quebrando (mesmo estilo das árvores)
+                        const particleCount = 20 + Math.floor(Math.random() * 10);
+                        
+                        for (let i = 0; i < particleCount; i++) {
+                            // Apenas tons de marrom (madeira)
+                            const colors = [
+                                '#654321', '#8B4513', '#A0522D', '#D2691E', '#CD853F'
+                            ];
+                            const color = colors[Math.floor(Math.random() * colors.length)];
+                            
+                            // Velocidade aleatória em todas as direções
+                            const angle = Math.random() * Math.PI * 2;
+                            const speed = 3 + Math.random() * 5;
+                            const velocityX = Math.cos(angle) * speed;
+                            const velocityY = Math.sin(angle) * speed - 3; // Mais para cima
+                            
+                            const size = 2 + Math.random() * 4;
+                            const lifetime = 600 + Math.random() * 600;
+                            
+                            this.particles.push(new Particle(
+                                breakResult.x,
+                                breakResult.y,
+                                color,
+                                velocityX,
+                                velocityY,
+                                size,
+                                lifetime
+                            ));
+                        }
+                        
+                        // Toca som de explosão
+                        audioManager.play('explosion', 0.7);
+                    }
+                    bullet.active = false;
+                }
+            });
+        });
         
         // Remove projéteis inativos
         this.bullets = this.bullets.filter(bullet => bullet.active);
         
-        // Verifica colisão com caixas (powerups)
+        // Verifica colisão do player com caixas quebradas (powerups revelados)
+        // Verifica colisão do player com caixas quebradas (powerups revelados)
         this.crates.forEach(crate => {
-            if (crate.active && checkCollision(
+            if (crate.active && crate.broken && checkCollision(
                 { x: crate.x, y: crate.y, width: crate.width, height: crate.height },
                 { x: this.player.x, y: this.player.y, width: this.player.width, height: this.player.height }
             )) {
                 const powerupType = crate.collect();
-                console.log('Crate coletada! Powerup type:', powerupType);
-                this.player.applyPowerup(powerupType);
-                this.showPowerupNotification(powerupType); // Mostra notificação
-                this.score += 10; // Powerups valem mais pontos
+                if (powerupType) {
+                    console.log('Power-up coletado! Tipo:', powerupType);
+                    this.player.applyPowerup(powerupType);
+                    this.showPowerupNotification(powerupType); // Mostra notificação
+                    
+                    // Toca o som de power-up ao coletar
+                    audioManager.play('power_up');
+                    
+                    // Adiciona score por coletar power-up
+                    this.score += 50;
+                }
             }
         });
         
@@ -1337,11 +1673,6 @@ class Game {
             });
         }
         
-        // Desenha caixas (não desenha no menu nem dentro da casa)
-        if (!this.inMenu && !this.isInHouse) {
-            this.crates.forEach(crate => crate.draw(this.ctx));
-        }
-        
         // Desenha casa (apenas no mapa principal, não no menu)
         if (this.house && !this.inMenu && !this.isInHouse) {
             this.house.draw(this.ctx);
@@ -1352,12 +1683,22 @@ class Game {
             this.campfire.draw(this.ctx);
         }
         
+        // Desenha cachorro (apenas dentro da casa, acima da fogueira)
+        if (this.dog && this.isInHouse) {
+            this.dog.draw(this.ctx, this.player, this);
+        }
+        
+        // Desenha caixas (não desenha no menu nem dentro da casa)
+        if (!this.inMenu && !this.isInHouse) {
+            this.crates.forEach(crate => crate.draw(this.ctx));
+        }
+        
         // Desenha projéteis (não desenha no menu nem dentro da casa)
         if (!this.inMenu && !this.isInHouse) {
             this.bullets.forEach(bullet => bullet.draw(this.ctx));
             
             // Desenha moedas
-            this.coins.forEach(coin => coin.draw(this.ctx));
+            this.coinObjects.forEach(coin => coin.draw(this.ctx));
             
             // Desenha partículas
             this.particles.forEach(particle => particle.draw(this.ctx));
@@ -1378,6 +1719,13 @@ class Game {
         // Desenha jogador (não desenha no menu)
         if (!this.inMenu) {
             this.player.draw(this.ctx);
+            
+            // Desenha pets (cachorros) - exceto dentro da casa
+            if (!this.isInHouse) {
+                this.petDogs.forEach(pet => {
+                    pet.draw(this.ctx, this.player, this);
+                });
+            }
             
             // Indicador de cura da fogueira
             if (this.campfire && this.isInHouse) {
@@ -1808,6 +2156,7 @@ class Game {
         // Atualiza vida mostrando atual/máxima
         document.getElementById('livesCount').textContent = `${this.player.lives}/${this.player.maxLives}`;
         document.getElementById('scoreCount').textContent = this.score;
+        document.getElementById('coinsCount').textContent = this.coins; // Mostra moedas separadamente
         document.getElementById('wolvesCount').textContent = this.wolvesKilled;
         
         // Não atualiza informações de onda se estiver no menu
@@ -1817,8 +2166,6 @@ class Game {
         const waveInfo = document.getElementById('waveInfo');
         const waveElement = document.getElementById('wave');
         
-        console.log('UpdateUI - Estado:', this.waveState, 'Timer:', this.waveTimer, 'CurrentWave:', this.currentWave);
-        
         if (waveInfo && waveElement) {
             // Mostra o indicador durante a notificação inicial da onda, notificação de progresso, durante a onda ativa (spawning/active), ou durante o período de espera
             const showWaveIndicator = this.waveNotificationTimer > 0 || 
@@ -1827,8 +2174,6 @@ class Game {
                                      this.waveState === 'spawning' || 
                                      this.waveState === 'active' ||
                                      this.waveState === 'waiting';
-            
-            console.log('ShowWaveIndicator:', showWaveIndicator, 'Display:', waveElement.style.display, 'Classes:', waveElement.classList.toString());
             
             if (showWaveIndicator) {
                 // Mostra o elemento
@@ -1984,12 +2329,15 @@ class Game {
         this.bossSpawned = false;
         this.bossNotificationTimer = 0;
         this.bullets = [];
-        this.coins = [];
+        this.coinObjects = []; // Reseta array de moedas
         this.crates = [];
+        this.petDogs = []; // Reseta pets
+        this.dogsPurchased = 0; // Reseta contador de cachorros
         this.lakes = [];
         this.trees = [];
         this.rocks = [];
-        this.score = 0;
+        this.score = 0; // Reseta score
+        this.coins = 0; // Reseta moedas
         this.wolvesKilled = 0;
         this.wolfSpawnTimer = 0;
         
@@ -2022,9 +2370,10 @@ class Game {
         this.bossSpawned = false;
         this.bossNotificationTimer = 0;
         this.bullets = [];
-        this.coins = [];
+        this.coinObjects = []; // Reseta array de moedas
         this.crates = [];
-        this.score = 0;
+        this.score = 0; // Reseta score
+        this.coins = 0; // Reseta moedas
         this.wolvesKilled = 0;
         this.wolfSpawnTimer = 0;
         
@@ -2054,6 +2403,7 @@ class Game {
         document.getElementById('logo').style.display = 'none';
         document.getElementById('lives').style.display = 'none';
         document.getElementById('score').style.display = 'none';
+        document.getElementById('coins').style.display = 'none';
         document.getElementById('wolves').style.display = 'none';
         document.getElementById('wave').style.display = 'none';
         document.getElementById('dashCooldownContainer').style.display = 'none';

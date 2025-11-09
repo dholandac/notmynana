@@ -1,13 +1,14 @@
 // Wolf.js - Classe do inimigo (Lobo)
 
 class Wolf {
-    constructor(x, y) {
+    constructor(x, y, isMinionBoss = false) {
         this.x = x;
         this.y = y;
         this.width = CONFIG.WOLF_WIDTH;
         this.height = CONFIG.WOLF_HEIGHT;
         this.speed = CONFIG.WOLF_SPEED;
         this.health = CONFIG.WOLF_HEALTH;
+        this.isMinionBoss = isMinionBoss; // Flag para lobos capangas do boss
         
         this.direction = 'dir'; // 'dir' ou 'esq'
         
@@ -335,6 +336,17 @@ class Wolf {
     
     draw(ctx) {
         ctx.save();
+        
+        // Desenha aura vermelha para lobos capangas do boss
+        if (this.isMinionBoss && !this.dying) {
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 15;
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 200) * 0.2; // Pulsa
+            ctx.strokeRect(this.x - 2, this.y - this.bounceOffset - 2, this.width + 4, this.height + 4);
+            ctx.globalAlpha = 1.0;
+        }
         
         // Se está morrendo, aplica transformações de morte
         if (this.dying) {

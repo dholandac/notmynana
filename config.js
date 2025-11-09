@@ -28,8 +28,8 @@ const CONFIG = {
     BULLET_SPEED: 8,
     BULLET_LIFETIME: 1000,
     
-    CRATE_WIDTH: 40,
-    CRATE_HEIGHT: 40,
+    CRATE_WIDTH: 42,  // 60 * 0.7 = 42
+    CRATE_HEIGHT: 42, // 60 * 0.7 = 42
     CRATE_COUNT: 4, // Reduzido para tornar mais raro
     
     POWERUPS: {

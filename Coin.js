@@ -56,6 +56,10 @@ class Coin {
         // Sistema de coleta
         if (distance < 20) { // Coleta quando muito perto
             this.active = false;
+            
+            // Toca o som de coleta de moeda
+            audioManager.play('coin');
+            
             return { collected: true, value: this.value };
         }
         

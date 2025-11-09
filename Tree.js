@@ -45,6 +45,10 @@ class Tree {
         this.health--;
         if (this.health <= 0) {
             this.breaking = true;
+            
+            // Toca o som de explosão quando a árvore é derrubada (70% do volume)
+            audioManager.play('explosion', 0.7);
+            
             return true; // Árvore foi destruída
         }
         return false; // Árvore ainda está de pé
