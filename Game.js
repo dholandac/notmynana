@@ -137,6 +137,10 @@ class Game {
         // Cria lagos primeiro
         this.spawnLakes();
         
+        // Cria decorações de grama (após lagos para evitar sobreposição)
+        this.grassDecorations = [];
+        this.createGrassDecorations();
+        
         // Reposiciona player se spawnou em um lago
         this.repositionPlayerIfInLake();
         
@@ -299,13 +303,21 @@ class Game {
                 valid = distFromCenter > 150; // Não spawna muito perto do player
                 
                 if (valid) {
-                    // Verifica se não está em cima de um lago
-                    const tree = new Tree(x, y);
+                    // Verifica se não está dentro ou próximo de lagos
                     for (let lake of this.lakes) {
-                        if (lake.isColliding(tree)) {
-                            valid = false;
-                            break;
+                        for (let segment of lake.segments) {
+                            const treeWidth = 60;
+                            const treeHeight = 90;
+                            const dx = Math.abs(x - (segment.x + segment.width / 2));
+                            const dy = Math.abs(y - (segment.y + segment.height / 2));
+                            const margin = Math.max(treeWidth, treeHeight) / 2 + 20; // Margem adicional
+                            
+                            if (dx < (segment.width / 2 + margin) && dy < (segment.height / 2 + margin)) {
+                                valid = false;
+                                break;
+                            }
                         }
+                        if (!valid) break;
                     }
                 }
                 
@@ -337,13 +349,21 @@ class Game {
             valid = distFromPlayer > 300; // Não spawna muito perto do player
             
             if (valid) {
-                // Verifica se não está em cima de um lago
-                const tree = new Tree(x, y);
+                // Verifica se não está dentro ou próximo de lagos
                 for (let lake of this.lakes) {
-                    if (lake.isColliding(tree)) {
-                        valid = false;
-                        break;
+                    for (let segment of lake.segments) {
+                        const treeWidth = 60;
+                        const treeHeight = 90;
+                        const dx = Math.abs(x - (segment.x + segment.width / 2));
+                        const dy = Math.abs(y - (segment.y + segment.height / 2));
+                        const margin = Math.max(treeWidth, treeHeight) / 2 + 20; // Margem adicional
+                        
+                        if (dx < (segment.width / 2 + margin) && dy < (segment.height / 2 + margin)) {
+                            valid = false;
+                            break;
+                        }
                     }
+                    if (!valid) break;
                 }
             }
             
@@ -378,22 +398,29 @@ class Game {
                 y = randomRange(50, CONFIG.WORLD_HEIGHT - 50);
                 
                 valid = true;
-                const rock = new Rock(x, y, size);
                 
-                // Verifica se não está em cima de um lago
+                // Verifica se não está dentro ou próximo de lagos
                 for (let lake of this.lakes) {
-                    if (lake.isColliding(rock)) {
-                        valid = false;
-                        break;
+                    for (let segment of lake.segments) {
+                        const rockSize = size === 'small' ? 25 : (size === 'medium' ? 37 : 52);
+                        const dx = Math.abs(x - (segment.x + segment.width / 2));
+                        const dy = Math.abs(y - (segment.y + segment.height / 2));
+                        const margin = rockSize + 20; // Margem adicional
+                        
+                        if (dx < (segment.width / 2 + margin) && dy < (segment.height / 2 + margin)) {
+                            valid = false;
+                            break;
+                        }
                     }
+                    if (!valid) break;
                 }
                 
                 // Verifica distância de árvores (não quer pedras muito próximas)
                 if (valid) {
                     for (let tree of this.trees) {
                         const dist = Math.sqrt(
-                            Math.pow(rock.x - tree.x, 2) + 
-                            Math.pow(rock.y - tree.y, 2)
+                            Math.pow(x - tree.x, 2) + 
+                            Math.pow(y - tree.y, 2)
                         );
                         if (dist < 30) {
                             valid = false;
@@ -412,58 +439,23 @@ class Game {
     }
     
     generateGroundPattern() {
-        // Gera um padrão de fundo com variações de cor para dar textura
+        // Gera um padrão de fundo plano com variações sutis de cor
         this.groundPatterns = [];
         
-        const patchSize = 80;
+        const patchSize = 16; // Tamanho reduzido para efeito pixelado
         const cols = Math.ceil(CONFIG.WORLD_WIDTH / patchSize);
         const rows = Math.ceil(CONFIG.WORLD_HEIGHT / patchSize);
         
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++) {
                 const baseColor = CONFIG.COLORS.GROUND;
-                const variation = Math.floor(Math.random() * 20) - 10;
-                
-                // Pré-gera posições de grama para não piscar
-                const grassLines = [];
-                const hasGrass = Math.random() > 0.4;
-                const grassDensity = Math.random();
-                
-                if (hasGrass) {
-                    const numLines = Math.floor(5 * grassDensity);
-                    for (let i = 0; i < numLines; i++) {
-                        grassLines.push({
-                            x: Math.random() * patchSize,
-                            y: Math.random() * patchSize,
-                            h: 3 + Math.random() * 4,
-                            offset: (Math.random() - 0.5) * 2
-                        });
-                    }
-                }
-                
-                // Pré-gera manchas
-                const spots = [];
-                const hasSpots = Math.random() > 0.7;
-                if (hasSpots) {
-                    const numSpots = Math.floor(Math.random() * 3) + 1;
-                    for (let i = 0; i < numSpots; i++) {
-                        spots.push({
-                            x: Math.random() * patchSize,
-                            y: Math.random() * patchSize,
-                            r: Math.random() * 8 + 5
-                        });
-                    }
-                }
+                const variation = Math.floor(Math.random() * 10) - 5; // Variação mais sutil
                 
                 this.groundPatterns.push({
                     x: x * patchSize,
                     y: y * patchSize,
                     size: patchSize,
-                    color: this.adjustColor(baseColor, variation),
-                    hasGrass,
-                    grassDensity,
-                    grassLines,
-                    spots
+                    color: this.adjustColor(baseColor, variation)
                 });
             }
         }
@@ -475,6 +467,89 @@ class Game {
         const g = Math.max(0, Math.min(255, parseInt(hex.substr(2, 2), 16) + amount));
         const b = Math.max(0, Math.min(255, parseInt(hex.substr(4, 2), 16) + amount));
         return `rgb(${r}, ${g}, ${b})`;
+    }
+    
+    createGrassDecorations() {
+        // Assets de decoração disponíveis
+        const decorationTypes = [
+            'bush1', 'bush2', 
+            'flowers1', 'flowers2', 'flowers3', 'flowers4',
+            'leaves', 'mushrooms', 'sapling'
+        ];
+        
+        // Distribui decorações pelo mapa em cantos estratégicos
+        const decorationCount = 150; // Quantidade de decorações
+        
+        for (let i = 0; i < decorationCount; i++) {
+            let x, y;
+            let attempts = 0;
+            let valid = false;
+            
+            do {
+                x = randomRange(50, CONFIG.WORLD_WIDTH - 50);
+                y = randomRange(50, CONFIG.WORLD_HEIGHT - 50);
+                
+                valid = true;
+                
+                // Verifica se não está dentro ou próximo de lagos
+                for (let lake of this.lakes) {
+                    // Verifica colisão com cada segmento do lago
+                    for (let segment of lake.segments) {
+                        const dx = Math.abs(x - (segment.x + segment.width / 2));
+                        const dy = Math.abs(y - (segment.y + segment.height / 2));
+                        const margin = 50; // Margem de segurança aumentada
+                        
+                        if (dx < (segment.width / 2 + margin) && dy < (segment.height / 2 + margin)) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                    if (!valid) break;
+                }
+                
+                // Verifica se não está muito perto de árvores
+                if (valid) {
+                    for (let tree of this.trees) {
+                        const dx = x - tree.x;
+                        const dy = y - tree.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (dist < 40) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+                
+                attempts++;
+            } while (!valid && attempts < 30);
+            
+            if (valid) {
+                const type = decorationTypes[Math.floor(Math.random() * decorationTypes.length)];
+                
+                if ((type.startsWith('flowers') || type === 'mushrooms') && Math.random() < 0.4) {
+                    continue;
+                }
+                
+                let size = randomRange(15, 30);
+                
+                if (type.startsWith('flowers') || type === 'mushrooms') {
+                    size *= 2;
+                }
+                
+                if (type === 'leaves' || type === 'bush1' || type === 'bush2') {
+                    size *= 1.4;
+                }
+                
+                this.grassDecorations.push({
+                    x: x,
+                    y: y,
+                    type: type,
+                    size: size,
+                    flipX: Math.random() > 0.5
+                });
+            }
+        }
     }
     
     spawnCrates() {
@@ -1706,15 +1781,29 @@ class Game {
             this.lakes.forEach(lake => lake.draw(this.ctx));
         }
         
+        // Desenha decorações de grama (apenas se não estiver dentro da casa)
+        if (!this.isInHouse) {
+            this.drawGrassDecorations();
+        }
+        
         // Desenha pedras (sempre no chão, antes de tudo) (apenas se não estiver dentro da casa)
         if (!this.isInHouse) {
             this.rocks.forEach(rock => rock.draw(this.ctx));
         }
         
-        // Desenha árvores (camada inferior) (apenas se não estiver dentro da casa)
+        // Desenha árvores cortadas (camada inferior) (apenas se não estiver dentro da casa)
         if (!this.isInHouse) {
             this.trees.forEach(tree => {
-                if (this.inMenu || tree.y < this.player.y) {
+                if (tree.isChopped && (this.inMenu || tree.y < this.player.y)) {
+                    tree.draw(this.ctx);
+                }
+            });
+        }
+        
+        // Desenha árvores normais (camada inferior) (apenas se não estiver dentro da casa)
+        if (!this.isInHouse) {
+            this.trees.forEach(tree => {
+                if (!tree.isChopped && (this.inMenu || tree.y < this.player.y)) {
                     tree.draw(this.ctx);
                 }
             });
@@ -1858,10 +1947,19 @@ class Game {
             }
         }
         
-        // Desenha árvores (camada superior - na frente do player) (apenas se não estiver dentro da casa)
+        // Desenha árvores cortadas (camada superior - na frente do player) (apenas se não estiver dentro da casa)
         if (!this.inMenu && !this.isInHouse) {
             this.trees.forEach(tree => {
-                if (tree.y >= this.player.y) {
+                if (tree.isChopped && tree.y >= this.player.y) {
+                    tree.draw(this.ctx);
+                }
+            });
+        }
+        
+        // Desenha árvores normais (camada superior - na frente do player) (apenas se não estiver dentro da casa)
+        if (!this.inMenu && !this.isInHouse) {
+            this.trees.forEach(tree => {
+                if (!tree.isChopped && tree.y >= this.player.y) {
                     tree.draw(this.ctx);
                 }
             });
@@ -1872,6 +1970,32 @@ class Game {
         
         // Desenha UI (sem transformação da câmera)
         this.drawUI();
+    }
+    
+    drawGrassDecorations() {
+        if (!this.grassDecorations) return;
+        
+        this.grassDecorations.forEach(deco => {
+            const img = assetLoader.getImage(deco.type);
+            if (!img) return;
+            
+            this.ctx.save();
+            
+            this.ctx.translate(deco.x, deco.y);
+            
+            if (deco.flipX) {
+                this.ctx.scale(-1, 1);
+            }
+            
+            // Calcula dimensões mantendo proporção
+            const aspectRatio = img.width / img.height;
+            let width = deco.size;
+            let height = deco.size / aspectRatio;
+            
+            this.ctx.drawImage(img, -width / 2, -height / 2, width, height);
+            
+            this.ctx.restore();
+        });
     }
     
     drawWorld() {
@@ -1982,45 +2106,10 @@ class Game {
             // Desenha patch base
             this.ctx.fillStyle = patch.color;
             this.ctx.fillRect(patch.x, patch.y, patch.size, patch.size);
-            
-            // Adiciona textura de grama se tiver
-            if (patch.hasGrass) {
-                this.ctx.save();
-                this.ctx.globalAlpha = 0.3 * patch.grassDensity;
-                
-                // Desenha linhas de grama pré-geradas
-                this.ctx.strokeStyle = '#4a7c2a';
-                this.ctx.lineWidth = 1;
-                
-                patch.grassLines.forEach(grass => {
-                    const gx = patch.x + grass.x;
-                    const gy = patch.y + grass.y;
-                    
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(gx, gy);
-                    this.ctx.lineTo(gx + grass.offset, gy - grass.h);
-                    this.ctx.stroke();
-                });
-                
-                this.ctx.restore();
-            }
-            
-            // Adiciona pequenas manchas escuras (sujeira/variação) pré-geradas
-            if (patch.spots.length > 0) {
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-                patch.spots.forEach(spot => {
-                    const sx = patch.x + spot.x;
-                    const sy = patch.y + spot.y;
-                    
-                    this.ctx.beginPath();
-                    this.ctx.arc(sx, sy, spot.r, 0, Math.PI * 2);
-                    this.ctx.fill();
-                });
-            }
         });
         
         // Desenha grid sutil para estrutura
-        const gridSize = 80;
+        const gridSize = 16; // Ajustado para combinar com patchSize
         this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.05)';
         this.ctx.lineWidth = 1;
         

@@ -35,9 +35,8 @@ class Particle {
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = this.color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx.fill();
+        // Desenha quadrado ao invés de círculo (size * 2 para compensar o raio)
+        ctx.fillRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
         ctx.restore();
     }
 }

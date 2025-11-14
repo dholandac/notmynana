@@ -59,118 +59,41 @@ class Lake {
     }
     
     draw(ctx) {
+        const waterImg = assetLoader.getImage('water');
+        if (!waterImg) return;
+        
         ctx.save();
         
-        const centerX = this.bounds.x + this.bounds.width / 2;
-        const centerY = this.bounds.y + this.bounds.height / 2;
-        
-        // Define a região de clipping (os efeitos só aparecem dentro do lago)
+        // Define a região de clipping (textura só aparece dentro do lago)
         ctx.beginPath();
         this.segments.forEach(seg => {
             ctx.rect(seg.x, seg.y, seg.width, seg.height);
         });
-        ctx.clip(); // Aplica o clipping
+        ctx.clip();
         
-        // Desenha os segmentos preenchidos
-        ctx.beginPath();
-        this.segments.forEach(seg => {
-            ctx.rect(seg.x, seg.y, seg.width, seg.height);
-        });
+        // Desenha a textura seamless repetindo para cobrir todo o lago
+        const tileSize = 128; // Tamanho de cada tile da textura
         
-        // Preenche com gradiente de água
-        const gradient = ctx.createRadialGradient(
-            centerX, centerY, 0,
-            centerX, centerY,
-            Math.max(this.bounds.width, this.bounds.height) / 2
-        );
-        gradient.addColorStop(0, '#6ba3d4');
-        gradient.addColorStop(0.6, CONFIG.COLORS.LAKE);
-        gradient.addColorStop(1, '#3a5a7a');
+        // Calcula quantos tiles são necessários
+        const startX = Math.floor(this.bounds.x / tileSize) * tileSize;
+        const startY = Math.floor(this.bounds.y / tileSize) * tileSize;
+        const endX = Math.ceil((this.bounds.x + this.bounds.width) / tileSize) * tileSize;
+        const endY = Math.ceil((this.bounds.y + this.bounds.height) / tileSize) * tileSize;
         
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        
-        // Efeito de brilho na água
-        ctx.globalAlpha = 0.4;
-        const highlightGradient = ctx.createRadialGradient(
-            centerX - this.bounds.width * 0.2,
-            centerY - this.bounds.height * 0.2,
-            0,
-            centerX,
-            centerY,
-            Math.max(this.bounds.width, this.bounds.height) / 3
-        );
-        highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-        highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        
-        ctx.fillStyle = highlightGradient;
-        ctx.beginPath();
-        this.segments.forEach(seg => {
-            ctx.rect(seg.x, seg.y, seg.width, seg.height);
-        });
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        
-        // Ondulações animadas - círculos concêntricos expandindo (mais raros)
-        const time = Date.now() / 1000;
-        
-        // Muda a posição dos droplets periodicamente (a cada 10 segundos)
-        if (time - this.lastDropletChange > 10) {
-            this.lastDropletChange = time;
-            this.initializeDroplets();
-        }
-        
-        for (let i = 0; i < this.dropletPositions.length; i++) {
-            const droplet = this.dropletPositions[i];
-            const segment = this.segments[droplet.segmentIndex];
-            
-            // Verifica se o segmento existe
-            if (!segment) continue;
-            
-            // Posição baseada nos offsets aleatórios (dentro dos limites do segmento)
-            const baseX = segment.x + segment.width * droplet.offsetX;
-            const baseY = segment.y + segment.height * droplet.offsetY;
-            
-            // Pequeno movimento adicional para vida (reduzido para não sair dos limites)
-            const offsetX = Math.sin(time * 0.2 + droplet.phase) * 5;
-            const offsetY = Math.cos(time * 0.2 + droplet.phase + 1) * 5;
-            
-            // Cria 3 círculos concêntricos para cada ondinha
-            for (let ring = 0; ring < 3; ring++) {
-                const phase = (time * 0.8 + droplet.phase + ring * 0.5) % 3; // Ciclo mais longo (3 ao invés de 2)
-                const radius = 5 + phase * 15;
-                const alpha = Math.max(0, 0.5 - phase * 0.15);
-                
-                ctx.strokeStyle = `rgba(200, 220, 255, ${alpha})`;
-                ctx.lineWidth = 2 - phase * 0.5;
-                
-                ctx.beginPath();
-                ctx.arc(baseX + offsetX, baseY + offsetY, radius, 0, Math.PI * 2);
-                ctx.stroke();
+        // Desenha tiles para cobrir toda a área do lago
+        ctx.globalAlpha = 0.85; // Leve transparência para integrar melhor
+        for (let x = startX; x < endX; x += tileSize) {
+            for (let y = startY; y < endY; y += tileSize) {
+                ctx.drawImage(waterImg, x, y, tileSize, tileSize);
             }
         }
+        ctx.globalAlpha = 1.0;
         
-        // Linhas onduladas na superfície da água
-        ctx.strokeStyle = 'rgba(180, 210, 240, 0.3)';
-        ctx.lineWidth = 1.5;
-        
-        for (let i = 0; i < 4; i++) {
-            ctx.beginPath();
-            const waveTime = time + i * 0.5;
-            const startX = this.bounds.x;
-            const endX = this.bounds.x + this.bounds.width;
-            const baseY = this.bounds.y + (this.bounds.height / 5) * (i + 1);
-            
-            for (let x = startX; x <= endX; x += 10) {
-                const offset = Math.sin((x - startX) * 0.05 + waveTime * 2) * 5;
-                if (x === startX) {
-                    ctx.moveTo(x, baseY + offset);
-                } else {
-                    ctx.lineTo(x, baseY + offset);
-                }
-            }
-            ctx.stroke();
-        }
+        // Overlay escuro para diminuir o brilho
+        ctx.fillStyle = 'rgba(0, 50, 80, 0.25)';
+        this.segments.forEach(seg => {
+            ctx.fillRect(seg.x, seg.y, seg.width, seg.height);
+        });
         
         ctx.restore();
     }

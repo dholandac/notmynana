@@ -63,11 +63,17 @@ class Campfire {
         
         // Desenha partículas de fumaça
         this.smokeParticles.forEach(particle => {
+            ctx.save(); // Save individual para cada partícula
             ctx.globalAlpha = particle.opacity;
             ctx.fillStyle = '#666666';
-            ctx.beginPath();
-            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-            ctx.fill();
+            // Desenha quadrado ao invés de círculo
+            ctx.fillRect(
+                particle.x - particle.size, 
+                particle.y - particle.size, 
+                particle.size * 2, 
+                particle.size * 2
+            );
+            ctx.restore(); // Restore individual
         });
         
         ctx.globalAlpha = 1;

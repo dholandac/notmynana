@@ -6,70 +6,48 @@ class Rock {
         this.y = y;
         this.size = size;
         
-        // Define tamanho baseado no tipo
+        // Escolhe uma das 3 variações de pedra
+        const rockTypes = ['rock1', 'rock2', 'rock3'];
+        this.rockType = rockTypes[Math.floor(Math.random() * rockTypes.length)];
+        
+        // Define tamanho baseado no tipo (reduzido em 20%)
         if (size === 'small') {
-            this.width = randomRange(8, 15);
-            this.height = randomRange(8, 15);
+            this.baseSize = randomRange(20, 30) * 0.8;
         } else if (size === 'medium') {
-            this.width = randomRange(15, 25);
-            this.height = randomRange(15, 25);
+            this.baseSize = randomRange(30, 45) * 0.8;
         } else {
-            this.width = randomRange(25, 35);
-            this.height = randomRange(25, 35);
+            this.baseSize = randomRange(45, 60) * 0.8;
         }
         
         this.type = 'rock';
         
         // Variações visuais
-        this.rotation = Math.random() * Math.PI * 2;
-        this.color1 = this.randomGray();
-        this.color2 = this.randomDarkGray();
-    }
-    
-    randomGray() {
-        const grays = ['#8c8c8c', '#9a9a9a', '#7a7a7a', '#888888'];
-        return grays[Math.floor(Math.random() * grays.length)];
-    }
-    
-    randomDarkGray() {
-        const darkGrays = ['#5a5a5a', '#6a6a6a', '#4a4a4a', '#555555'];
-        return darkGrays[Math.floor(Math.random() * darkGrays.length)];
+        this.flipX = Math.random() > 0.5;
     }
     
     draw(ctx) {
+        const img = assetLoader.getImage(this.rockType);
+        if (!img) return;
+        
         ctx.save();
         
-        const centerX = this.x + this.width / 2;
-        const centerY = this.y + this.height / 2;
+        const centerX = this.x + this.baseSize / 2;
+        const centerY = this.y + this.baseSize / 2;
         
         // Translada para o centro da pedra
         ctx.translate(centerX, centerY);
-        ctx.rotate(this.rotation);
         
-        // Sombra sutil
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.beginPath();
-        ctx.ellipse(2, 2, this.width / 2, this.height / 2.5, 0, 0, Math.PI * 2);
-        ctx.fill();
+        if (this.flipX) {
+            ctx.scale(-1, 1);
+        }
         
-        // Corpo da pedra (forma irregular usando elipse)
-        ctx.fillStyle = this.color1;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Calcula dimensões mantendo proporção da imagem
+        const aspectRatio = img.width / img.height;
+        let width = this.baseSize;
+        let height = this.baseSize / aspectRatio;
         
-        // Borda mais escura
-        ctx.strokeStyle = this.color2;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Highlight (brilho)
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.beginPath();
-        ctx.ellipse(-this.width * 0.15, -this.height * 0.15, this.width * 0.2, this.height * 0.15, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Desenha a imagem centralizada
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
         
         ctx.restore();
     }

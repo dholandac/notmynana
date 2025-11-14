@@ -1,6 +1,40 @@
 window.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('gameCanvas');
     
+    // Carrega todas as imagens dos assets
+    console.log('Carregando assets...');
+    
+    // Pedras
+    assetLoader.loadImage('rock1', 'assets/nature/rock1.png');
+    assetLoader.loadImage('rock2', 'assets/nature/rock2.png');
+    assetLoader.loadImage('rock3', 'assets/nature/rock3.png');
+    
+    // Árvores
+    assetLoader.loadImage('tree', 'assets/nature/tree.png');
+    assetLoader.loadImage('chopped_tree', 'assets/nature/chopped_tree.png');
+    
+    // Decorações de grama
+    assetLoader.loadImage('bush1', 'assets/nature/bush1.png');
+    assetLoader.loadImage('bush2', 'assets/nature/bush2.png');
+    assetLoader.loadImage('flowers1', 'assets/nature/flowers1.png');
+    assetLoader.loadImage('flowers2', 'assets/nature/flowers2.png');
+    assetLoader.loadImage('flowers3', 'assets/nature/flowers3.png');
+    assetLoader.loadImage('flowers4', 'assets/nature/flowers4.png');
+    assetLoader.loadImage('leaves', 'assets/nature/leaves.png');
+    assetLoader.loadImage('mushrooms', 'assets/nature/mushrooms.png');
+    assetLoader.loadImage('sapling', 'assets/nature/sapling.png');
+    
+    // Textura de água
+    assetLoader.loadImage('water', 'assets/nature/water.png');
+    
+    // Aguarda o carregamento completo
+    assetLoader.onComplete = () => {
+        console.log('Assets carregados!');
+        initGame();
+    };
+    
+    function initGame() {
+    
     // Força orientação landscape em dispositivos móveis
     if (screen.orientation && screen.orientation.lock) {
         screen.orientation.lock('landscape').catch(err => {
@@ -263,4 +297,6 @@ window.addEventListener('DOMContentLoaded', () => {
     console.log('- Espaço: Atirar');
     console.log('- R: Reiniciar (quando Game Over)');
     console.log('- M: Voltar ao Menu (quando Game Over)');
+    
+    } // Fim da função initGame
 });

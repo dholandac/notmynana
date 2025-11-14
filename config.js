@@ -59,8 +59,8 @@ const CONFIG = {
     BOSS_HEALTH: 50,
     
     COLORS: {
-        BACKGROUND: '#5a7c5a',
-        GROUND: '#6b8e6b',
+        BACKGROUND: '#1e6f50',
+        GROUND: '#1e6f50',
         PLAYER: '#ff69b4',
         WOLF: '#8b4513',
         BULLET: '#ffd700',

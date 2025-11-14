@@ -4,11 +4,16 @@ class Tree {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width = 40;
-        this.height = 60; // Árvore tem altura maior que largura
-        this.trunkWidth = 15;
-        this.trunkHeight = 25;
-        this.crownRadius = 25;
+        
+        // 20% das árvores serão chopped_tree.png
+        this.isChopped = Math.random() < 0.2;
+        this.treeType = this.isChopped ? 'chopped_tree' : 'tree';
+        
+        // Define tamanho baseado na sprite
+        this.baseSize = 60; // Tamanho base para manter proporções
+        this.width = this.baseSize;
+        this.height = this.baseSize * 1.5; // Árvores são mais altas
+        
         this.type = 'tree';
         
         // Sistema de vida
@@ -23,20 +28,9 @@ class Tree {
         this.fallRotation = 0;
         this.fallDirection = Math.random() > 0.5 ? 1 : -1; // Cai para direita ou esquerda
         
-        // Variação visual
-        this.crownColor1 = this.randomGreen();
-        this.crownColor2 = this.randomDarkGreen();
+        // Variações visuais
+        this.flipX = Math.random() > 0.5;
         this.swayOffset = Math.random() * Math.PI * 2; // Para animação de balanço
-    }
-    
-    randomGreen() {
-        const greens = ['#2d5016', '#3a6b1f', '#4a7c2a', '#2f5a1a'];
-        return greens[Math.floor(Math.random() * greens.length)];
-    }
-    
-    randomDarkGreen() {
-        const darkGreens = ['#1a3a0f', '#234516', '#2a4f1a', '#1f3d12'];
-        return darkGreens[Math.floor(Math.random() * darkGreens.length)];
     }
     
     takeDamage() {
@@ -75,94 +69,73 @@ class Tree {
         // Não colide se está quebrando
         if (this.breaking) return false;
         
-        // Colisão apenas com o tronco (mais realista)
-        const trunkX = this.x + (this.width - this.trunkWidth) / 2;
-        const trunkY = this.y + this.height - this.trunkHeight;
+        // Colisão com a área central da árvore (ajustada para cima)
+        const collisionWidth = this.width * 0.4;
+        const collisionHeight = this.height * 0.3;
+        const collisionX = this.x + (this.width - collisionWidth) / 2;
+        const collisionY = this.y + this.height - collisionHeight - this.height * 0.15; // Movida 15% para cima
         
         return checkCollision(
-            { x: trunkX, y: trunkY, width: this.trunkWidth, height: this.trunkHeight },
+            { x: collisionX, y: collisionY, width: collisionWidth, height: collisionHeight },
             entity
         );
     }
     
     draw(ctx) {
+        const img = assetLoader.getImage(this.treeType);
+        if (!img) return;
+        
         ctx.save();
         
         const time = Date.now() / 1000;
         const centerX = this.x + this.width / 2;
-        const trunkY = this.y + this.height - this.trunkHeight;
-        const crownY = this.y + this.height - this.trunkHeight - this.crownRadius + 10;
+        const centerY = this.y + this.height;
         
         // Se está quebrando, aplica transformação de rotação
         if (this.breaking) {
             const progress = this.breakTimer / this.breakDuration;
             
-            // Translada para o ponto de pivô (base do tronco)
-            ctx.translate(centerX, this.y + this.height);
+            // Translada para o ponto de pivô (base da árvore)
+            ctx.translate(centerX, centerY);
             ctx.rotate(this.fallRotation);
-            ctx.translate(-centerX, -(this.y + this.height));
+            ctx.translate(-centerX, -centerY);
             
             // Fade out
-            ctx.globalAlpha = 1 - progress * 0.5; // Transparência gradual
+            ctx.globalAlpha = 1 - progress * 0.5;
         }
         
-        const sway = this.breaking ? 0 : Math.sin(time + this.swayOffset) * 2; // Sem balanço ao quebrar
+        const sway = this.breaking ? 0 : Math.sin(time + this.swayOffset) * 1.5;
         
         // Sombra da árvore
         if (!this.breaking) {
+            // Ajusta posição da sombra baseado no tipo de árvore
+            const shadowOffsetY = this.isChopped ? -this.height * 0.15 : -this.height * 0.07;
+            
             ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
             ctx.beginPath();
-            ctx.ellipse(centerX + 3, this.y + this.height + 2, this.width / 2, 8, 0, 0, Math.PI * 2);
+            ctx.ellipse(centerX - 0.5, centerY + shadowOffsetY, this.width / 2, 8, 0, 0, Math.PI * 2);
             ctx.fill();
         }
         
-        // Tronco
-        ctx.fillStyle = '#4a3728';
-        const trunkX = centerX - this.trunkWidth / 2;
-        ctx.fillRect(trunkX + sway * 0.3, trunkY, this.trunkWidth, this.trunkHeight);
+        // Desenha a árvore
+        ctx.translate(centerX, centerY);
         
-        // Detalhes do tronco (textura)
-        ctx.strokeStyle = '#3a2718';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < 3; i++) {
-            const y = trunkY + (this.trunkHeight / 4) * (i + 1);
-            ctx.beginPath();
-            ctx.moveTo(trunkX + sway * 0.3, y);
-            ctx.lineTo(trunkX + this.trunkWidth + sway * 0.3, y);
-            ctx.stroke();
+        // Adiciona leve rotação para simular vento (apenas se não está quebrando)
+        if (!this.breaking) {
+            ctx.rotate(sway * 0.01); // Rotação sutil com base no sway
         }
         
-        // Copa da árvore (3 círculos para dar volume)
-        // Círculo traseiro (mais escuro)
-        ctx.fillStyle = this.crownColor2;
-        ctx.beginPath();
-        ctx.arc(centerX - 8 + sway, crownY + 5, this.crownRadius * 0.8, 0, Math.PI * 2);
-        ctx.fill();
+        if (this.flipX) {
+            ctx.scale(-1, 1);
+        }
         
-        // Círculo direito
-        ctx.fillStyle = this.crownColor1;
-        ctx.beginPath();
-        ctx.arc(centerX + 10 + sway, crownY, this.crownRadius * 0.85, 0, Math.PI * 2);
-        ctx.fill();
+        // Calcula dimensões mantendo proporção da imagem
+        const aspectRatio = img.width / img.height;
+        let width = this.width;
+        let height = this.width / aspectRatio;
         
-        // Círculo principal (centro)
-        ctx.fillStyle = this.crownColor1;
-        ctx.beginPath();
-        ctx.arc(centerX + sway, crownY - 5, this.crownRadius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Borda escura da copa
-        ctx.strokeStyle = this.crownColor2;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(centerX + sway, crownY - 5, this.crownRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        // Highlights (brilho nas folhas)
-        ctx.fillStyle = 'rgba(150, 200, 100, 0.3)';
-        ctx.beginPath();
-        ctx.arc(centerX - 5 + sway, crownY - 10, this.crownRadius * 0.4, 0, Math.PI * 2);
-        ctx.fill();
+        // Desenha a imagem centralizada na base
+        ctx.drawImage(img, -width / 2, -height, width, height);
         
         ctx.restore();
     }
