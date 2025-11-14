@@ -129,12 +129,12 @@ window.addEventListener('DOMContentLoaded', () => {
             const scaleY = screenHeight / height;
             scale = Math.min(scaleX, scaleY);
             
-            // Aplica transformação CSS para escalar e centralizar
-            canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
-            canvas.style.transformOrigin = 'center center';
+            // Aplica transformação CSS sem centralização - canvas fica no topo esquerdo
+            canvas.style.transform = `scale(${scale})`;
+            canvas.style.transformOrigin = 'top left';
             canvas.style.position = 'absolute';
-            canvas.style.top = '50%';
-            canvas.style.left = '50%';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
         } else {
             // Remove transformação no desktop
             canvas.style.transform = '';

@@ -60,6 +60,9 @@
                 padding: 0;
                 background-color: #1f2429;
                 overflow: hidden;
+                display: block;
+                align-items: unset;
+                justify-content: unset;
             }
             #gameContainer {
                 border-radius: 0;
@@ -73,15 +76,19 @@
                 top: 0;
                 left: 0;
                 display: block;
+                align-items: unset;
+                justify-content: unset;
             }
             canvas {
                 border-radius: 0;
                 position: absolute;
-                top: 0;
-                left: 0;
+                top: 0 !important;
+                left: 0 !important;
                 width: 100% !important;
                 height: 100% !important;
                 object-fit: cover;
+                margin: 0 !important;
+                transform: none !important;
             }
         }
         
