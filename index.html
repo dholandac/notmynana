@@ -317,6 +317,55 @@
         #menuScreen.hidden {
             display: none;
         }
+        
+        /* Game Over Screen */
+        #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #gameOverScreen.visible {
+            display: flex;
+        }
+        #gameOverTitle {
+            font-size: 64px;
+            font-weight: bold;
+            color: #ff0000;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.9);
+            margin-bottom: 20px;
+        }
+        #gameOverStats {
+            font-size: 24px;
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        #gameOverStats p {
+            margin: 10px 0;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        #gameOverButtons {
+            display: flex;
+            gap: 20px;
+        }
+        #gameOverButtons .menuButton {
+            background-color: rgba(200, 0, 0, 0.9);
+            border-color: #cc0000;
+            color: #ffffff;
+        }
+        #gameOverButtons .menuButton:hover {
+            background-color: rgba(255, 50, 50, 0.9);
+            border-color: #ff3333;
+        }
+        
         #menuLeft {
             flex: 1;
             display: flex;
@@ -380,6 +429,16 @@
                 font-size: 18px;
                 padding: 12px 30px;
                 width: 200px;
+            }
+            #gameOverTitle {
+                font-size: 48px;
+            }
+            #gameOverStats {
+                font-size: 20px;
+            }
+            #gameOverButtons {
+                flex-direction: column;
+                gap: 10px;
             }
             #ui {
                 font-size: 18px;
@@ -691,6 +750,19 @@
             </div>
             <div id="menuRight">
                 <img id="menuLogo" src="assets/notmynanalogo.png" alt="Not My Nana">
+            </div>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen">
+            <h1 id="gameOverTitle">GAME OVER</h1>
+            <div id="gameOverStats">
+                <p>Score Final: <span id="finalScore">0</span></p>
+                <p>Lobos Eliminados: <span id="finalWolves">0</span></p>
+            </div>
+            <div id="gameOverButtons">
+                <button class="menuButton" id="restartButton">REINICIAR</button>
+                <button class="menuButton" id="menuButton">MENU</button>
             </div>
         </div>
         

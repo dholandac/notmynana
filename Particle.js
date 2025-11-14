@@ -11,7 +11,7 @@ class Particle {
         this.lifetime = lifetime;
         this.maxLifetime = lifetime;
         this.active = true;
-        this.gravity = 0.2; // Gravidade para as partículas caírem
+        this.gravity = -0.05; // Gravidade negativa para poeira subir levemente
     }
     
     update(deltaTime) {
@@ -84,7 +84,7 @@ function createMovementParticles(x, y, groundColor = '#6b8e6b') {
         const angle = (Math.random() - 0.5) * Math.PI * 0.8; // Menos espalhamento
         const speed = 0.3 + Math.random() * 0.5; // Velocidade reduzida
         const velocityX = Math.cos(angle) * speed;
-        const velocityY = Math.sin(angle) * speed - 0.3; // Menos movimento para cima
+        const velocityY = -0.5 - Math.random() * 0.8; // Movimento para cima (poeira subindo)
         
         const size = 2 + Math.random() * 2; // Partículas médias (2-4px)
         const lifetime = 200 + Math.random() * 150; // 200-350ms (duração curta)

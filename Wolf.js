@@ -311,7 +311,7 @@ class Wolf {
     
     takeDamage() {
         this.health--;
-        this.hitFlashTime = this.hitFlashDuration; // Ativa o flash de dano
+        this.hitFlashTime = this.hitFlashDuration;
         
         // Se morreu, inicia animação de morte
         if (this.health <= 0) {

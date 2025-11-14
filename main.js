@@ -117,6 +117,8 @@ window.addEventListener('DOMContentLoaded', () => {
         canvas.width = width;
         canvas.height = height;
         
+        let scale = 1;
+        
         // Se for mobile, aplica escala CSS para caber na tela
         if (isMobile) {
             const screenWidth = window.innerWidth || document.documentElement.clientWidth;
@@ -125,7 +127,7 @@ window.addEventListener('DOMContentLoaded', () => {
             // Calcula escala necessária para caber na tela
             const scaleX = screenWidth / width;
             const scaleY = screenHeight / height;
-            const scale = Math.min(scaleX, scaleY);
+            scale = Math.min(scaleX, scaleY);
             
             // Aplica transformação CSS para escalar e centralizar
             canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;

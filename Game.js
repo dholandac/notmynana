@@ -119,6 +119,7 @@ class Game {
         // Inicialização
         this.init();
         this.setupMenuControls();
+        this.setupGameOverControls();
         this.setupCanvasClickListener();
     }
     
@@ -600,7 +601,7 @@ class Game {
         this.currentWave++;
         this.waveState = 'spawning';
         this.waveNotificationTimer = this.waveNotificationDuration;
-        this.isPaused = true; // Pausa o jogo durante a notificação
+        this.isPaused = true;
         
         // Verifica se é uma onda de boss (a cada 5 ondas)
         this.isBossWave = (this.currentWave % this.bossWaveInterval === 0);
@@ -1021,7 +1022,7 @@ class Game {
             });
             
             button.addEventListener('mouseleave', () => {
-                hasPlayed = false; // Reseta a flag quando sai do botão
+                hasPlayed = false;
             });
         });
         
@@ -1054,6 +1055,38 @@ class Game {
         
         // Spawna lobos decorativos para o menu
         this.spawnDecorativeWolves();
+    }
+    
+    setupGameOverControls() {
+        const restartButton = document.getElementById('restartButton');
+        const menuButton = document.getElementById('menuButton');
+        
+        // Adiciona som de hover
+        const buttons = [restartButton, menuButton];
+        buttons.forEach(button => {
+            let hasPlayed = false;
+            
+            button.addEventListener('mouseenter', () => {
+                if (!hasPlayed) {
+                    audioManager.play('select');
+                    hasPlayed = true;
+                }
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                hasPlayed = false;
+            });
+        });
+        
+        restartButton.addEventListener('click', () => {
+            audioManager.play('confirm');
+            this.restart();
+        });
+        
+        menuButton.addEventListener('click', () => {
+            audioManager.play('confirm');
+            this.backToMenu();
+        });
     }
     
     spawnDecorativeWolves() {
@@ -1104,7 +1137,7 @@ class Game {
         }
         
         if (this.gameOver) {
-            this.updateUI(); // Atualiza UI mesmo no game over
+            this.updateUI();
             return;
         }
         
@@ -1202,13 +1235,14 @@ class Game {
                 { x: this.player.x, y: this.player.y, width: this.player.width, height: this.player.height }
             )) {
                 if (this.player.takeDamage()) {
-                    this.damageFlashTime = this.damageFlashDuration; // Ativa flash vermelho
+                    this.damageFlashTime = this.damageFlashDuration;
                     if (this.player.lives <= 0) {
                         this.gameOver = true;
                         
-                        // Pausa a música de fundo e toca o som de game over com volume reduzido
+                        // Pausa a música de fundo e toca o som de game over
                         audioManager.pauseMusic();
-                        audioManager.play('game_over', 0.5); // 50% do volume
+                        audioManager.play('game_over', 0.5);
+                        this.showGameOver();
                     }
                 }
             }
@@ -1318,9 +1352,10 @@ class Game {
                     if (this.player.lives <= 0) {
                         this.gameOver = true;
                         
-                        // Pausa a música de fundo e toca o som de game over com volume reduzido
+                        // Pausa a música de fundo e toca o som de game over
                         audioManager.pauseMusic();
-                        audioManager.play('game_over', 0.5); // 50% do volume
+                        audioManager.play('game_over', 0.5);
+                        this.showGameOver();
                     }
                 }
             }
@@ -1837,11 +1872,6 @@ class Game {
         
         // Desenha UI (sem transformação da câmera)
         this.drawUI();
-        
-        // Game Over
-        if (this.gameOver) {
-            this.drawGameOver();
-        }
     }
     
     drawWorld() {
@@ -2144,24 +2174,18 @@ class Game {
         }
     }
     
-    drawGameOver() {
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    showGameOver() {
+        // Atualiza estatísticas do game over
+        document.getElementById('finalScore').textContent = this.score;
+        document.getElementById('finalWolves').textContent = this.wolvesKilled;
         
-        this.ctx.fillStyle = '#ff0000';
-        this.ctx.font = 'bold 48px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText('GAME OVER', this.canvas.width / 2, this.canvas.height / 2 - 60);
-        
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = '24px Arial';
-        this.ctx.fillText(`Score Final: ${this.score}`, this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.fillText(`Lobos Eliminados: ${this.wolvesKilled}`, this.canvas.width / 2, this.canvas.height / 2 + 30);
-        
-        this.ctx.font = '18px Arial';
-        this.ctx.fillText('Pressione R para Reiniciar', this.canvas.width / 2, this.canvas.height / 2 + 80);
-        this.ctx.fillText('Pressione M para Menu', this.canvas.width / 2, this.canvas.height / 2 + 110);
+        // Mostra a tela de game over
+        document.getElementById('gameOverScreen').classList.add('visible');
+    }
+    
+    hideGameOver() {
+        // Esconde a tela de game over
+        document.getElementById('gameOverScreen').classList.remove('visible');
     }
     
     updateUI() {
@@ -2371,6 +2395,12 @@ class Game {
         this.houseSpawned = false;
         this.isInHouse = false;
         this.savedWorldState = null;
+        this.hideGameOver();
+        
+        // Reinicia a música do jogo
+        audioManager.stopMusic();
+        audioManager.playMusic('retro_forest', true);
+        
         this.init();
     }
     
@@ -2408,7 +2438,8 @@ class Game {
         this.houseSpawned = false;
         this.isInHouse = false;
         this.savedWorldState = null;
-        this.damageFlashTime = 0; // Reseta o flash de dano
+        this.damageFlashTime = 0;
+        this.hideGameOver();
         
         // Volta para o menu
         this.inMenu = true;

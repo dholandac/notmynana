@@ -426,7 +426,7 @@ class Player {
         this.isDashing = true;
         this.dashStartTime = currentTime;
         this.lastDashTime = currentTime;
-        this.dashRotation = 0; // Reseta rotação
+        this.dashRotation = 0;
         
         // Toca o som de dash
         audioManager.play('jump');
