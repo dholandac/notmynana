@@ -72,17 +72,16 @@
                 position: fixed;
                 top: 0;
                 left: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                display: block;
             }
             canvas {
                 border-radius: 0;
-                position: relative;
-                top: auto;
-                left: auto;
-                transform: none;
-                transform-origin: center center;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover;
             }
         }
         
@@ -125,7 +124,7 @@
             color: white;
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 150;
+            z-index: 600;
             display: none;
         }
         #livesDisplay {
@@ -142,7 +141,7 @@
             color: white;
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 150;
+            z-index: 600;
             display: none;
         }
         #scoreDisplay {
@@ -159,7 +158,7 @@
             color: white;
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 150;
+            z-index: 600;
             display: none;
         }
         #coinsDisplay {
@@ -176,7 +175,7 @@
             color: white;
             font-size: 18px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 150;
+            z-index: 600;
             display: none;
         }
         #wolvesDisplay {
@@ -195,7 +194,7 @@
             font-size: 20px;
             font-weight: bold;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-            z-index: 20;
+            z-index: 600;
             display: none;
             opacity: 0;
             transition: opacity 0.5s ease-in-out;
@@ -223,7 +222,7 @@
             background-color: rgba(0, 0, 0, 0.6);
             border: 2px solid #3498db;
             border-radius: 10px;
-            z-index: 1000;
+            z-index: 600;
             display: none;
         }
         #dashCooldownBar {
@@ -243,7 +242,7 @@
             font-size: 16px;
             font-weight: bold;
             text-shadow: 0 0 10px rgba(52, 152, 219, 0.8);
-            z-index: 10;
+            z-index: 600;
             display: none;
             animation: dashPulse 1s infinite;
         }
@@ -515,11 +514,11 @@
         /* Mobile Controls */
         #mobileControls {
             position: fixed;
-            bottom: 0;
+            top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 200;
+            z-index: 500;
             display: none;
             pointer-events: none;
         }
@@ -530,10 +529,10 @@
         
         .mobile-joystick {
             position: absolute;
-            bottom: 30px;
-            left: 30px;
-            width: 120px;
-            height: 120px;
+            bottom: 20px;
+            left: 20px;
+            width: 110px;
+            height: 110px;
             pointer-events: all;
         }
         
@@ -562,24 +561,24 @@
         
         .mobile-buttons {
             position: absolute;
-            bottom: 30px;
-            right: 30px;
+            bottom: 20px;
+            right: 20px;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
             pointer-events: all;
         }
         
         .mobile-button {
-            width: 70px;
-            height: 70px;
+            width: 65px;
+            height: 65px;
             background: radial-gradient(circle, rgba(255,100,100,0.7), rgba(200,50,50,0.6));
             border: 3px solid rgba(255,255,255,0.4);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 26px;
             color: white;
             text-shadow: 0 2px 4px rgba(0,0,0,0.8);
             cursor: pointer;
@@ -678,21 +677,66 @@
                 padding: 0 !important;
             }
             
-            /* Ajusta UI para não ter margem superior */
+            /* Ajusta UI para otimizar espaço em mobile */
             #lives {
-                top: 5px !important;
+                top: 10px !important;
+                left: 10px !important;
+                font-size: 16px !important;
             }
             
             #score {
-                top: 30px !important;
+                top: 45px !important;
+                left: 10px !important;
+                font-size: 16px !important;
             }
             
             #coins {
-                top: 55px !important;
+                top: 80px !important;
+                left: 10px !important;
+                font-size: 16px !important;
             }
             
             #wolves {
-                top: 80px !important;
+                top: 115px !important;
+                left: 10px !important;
+                font-size: 16px !important;
+            }
+            
+            /* Ajusta wave display no mobile */
+            #wave {
+                bottom: 135px !important;
+                font-size: 16px !important;
+            }
+            
+            /* Ajusta posicionamento do joystick e botões no mobile */
+            .mobile-joystick {
+                bottom: 15px !important;
+                left: 15px !important;
+                width: 100px !important;
+                height: 100px !important;
+            }
+            
+            .mobile-buttons {
+                bottom: 15px !important;
+                right: 15px !important;
+                gap: 10px !important;
+            }
+            
+            .mobile-button {
+                width: 60px !important;
+                height: 60px !important;
+                font-size: 24px !important;
+            }
+            
+            /* Ajusta dash cooldown para mobile */
+            #dashCooldownContainer {
+                bottom: 125px !important;
+                width: 250px !important;
+            }
+            
+            #dashReadyIndicator {
+                bottom: 145px !important;
+                font-size: 14px !important;
             }
         }
         
