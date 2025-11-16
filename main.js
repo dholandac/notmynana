@@ -153,22 +153,22 @@ window.addEventListener('DOMContentLoaded', () => {
         
         let scale = 1;
         
-        // Se for mobile, aplica escala CSS para caber na tela
+        // Se for mobile, aplica escala CSS para caber na tela e centraliza
         if (isMobile) {
             const screenWidth = window.innerWidth || document.documentElement.clientWidth;
             const screenHeight = window.innerHeight || document.documentElement.clientHeight;
-            
+
             // Calcula escala necessária para caber na tela
             const scaleX = screenWidth / width;
             const scaleY = screenHeight / height;
             scale = Math.min(scaleX, scaleY);
-            
-            // Aplica transformação CSS sem centralização - canvas fica no topo esquerdo
-            canvas.style.transform = `scale(${scale})`;
-            canvas.style.transformOrigin = 'top left';
+
+            // Centraliza o canvas na tela
             canvas.style.position = 'absolute';
-            canvas.style.top = '0';
-            canvas.style.left = '0';
+            canvas.style.left = '50%';
+            canvas.style.top = '50%';
+            canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            canvas.style.transformOrigin = 'center center';
         } else {
             // Remove transformação no desktop
             canvas.style.transform = '';

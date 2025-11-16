@@ -1175,7 +1175,16 @@ class Game {
     
     startGame() {
         this.inMenu = false;
-        document.getElementById('menuScreen').classList.add('hidden');
+        const menuScreen = document.getElementById('menuScreen');
+        menuScreen.classList.add('hidden');
+        menuScreen.style.setProperty('display', 'none', 'important');
+        // Esconde botões e logo do menu
+        const menuLeft = document.getElementById('menuLeft');
+        const menuRight = document.getElementById('menuRight');
+        const menuLogo = document.getElementById('menuLogo');
+        if (menuLeft) menuLeft.style.setProperty('display', 'none', 'important');
+        if (menuRight) menuRight.style.setProperty('display', 'none', 'important');
+        if (menuLogo) menuLogo.style.setProperty('display', 'none', 'important');
         
         // Reseta a câmera para centralizar no player imediatamente
         this.camera.resetPosition();
@@ -2063,23 +2072,28 @@ class Game {
             return; // Não desenha o mundo normal
         }
         
-        // Calcula área visível baseado no estado do jogo
+        // Calcula área visível baseado no estado do jogo, corrigindo centralização para mobile
         let startX, startY, endX, endY;
-        
+        // Usa o tamanho real do canvas exibido na tela para garantir área máxima de visualização
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const canvasWidth = Math.max(this.canvas.width / (window.devicePixelRatio || 1), canvasRect.width);
+        const canvasHeight = Math.max(this.canvas.height / (window.devicePixelRatio || 1), canvasRect.height);
+
+        const extraMargin = 300; // margem extra maior para garantir renderização completa, inclusive no canto inferior direito
         if (this.inMenu) {
             // No menu, centraliza no meio do mundo
             const centerX = CONFIG.WORLD_WIDTH / 2;
             const centerY = CONFIG.WORLD_HEIGHT / 2;
-            startX = Math.floor((centerX - this.canvas.width / 2) / 80) * 80;
-            startY = Math.floor((centerY - this.canvas.height / 2) / 80) * 80;
-            endX = centerX + this.canvas.width / 2 + 80;
-            endY = centerY + this.canvas.height / 2 + 80;
+            startX = Math.floor((centerX - canvasWidth / 2 - extraMargin) / 80) * 80;
+            startY = Math.floor((centerY - canvasHeight / 2 - extraMargin) / 80) * 80;
+            endX = Math.min(centerX + canvasWidth / 2 + extraMargin + 80, CONFIG.WORLD_WIDTH);
+            endY = Math.min(centerY + canvasHeight / 2 + extraMargin, CONFIG.WORLD_HEIGHT);
         } else {
-            // No jogo, usa a câmera
-            startX = Math.floor(this.camera.x / 80) * 80;
-            startY = Math.floor(this.camera.y / 80) * 80;
-            endX = this.camera.x + CONFIG.CANVAS_WIDTH + 80;
-            endY = this.camera.y + CONFIG.CANVAS_HEIGHT + 80;
+            // No jogo, usa a câmera centralizada no player
+            startX = Math.floor((this.camera.x - extraMargin) / 80) * 80;
+            startY = Math.floor((this.camera.y - extraMargin) / 80) * 80;
+            endX = Math.min(this.camera.x + canvasWidth + extraMargin + 80, CONFIG.WORLD_WIDTH);
+            endY = Math.min(this.camera.y + canvasHeight + extraMargin, CONFIG.WORLD_HEIGHT);
         }
         
         this.groundPatterns.forEach(patch => {
@@ -2532,7 +2546,15 @@ class Game {
         
         // Volta para o menu
         this.inMenu = true;
-        document.getElementById('menuScreen').classList.remove('hidden');
+        const menuScreen = document.getElementById('menuScreen');
+        const menuLeft = document.getElementById('menuLeft');
+        const menuRight = document.getElementById('menuRight');
+        const menuLogo = document.getElementById('menuLogo');
+        menuScreen.classList.remove('hidden');
+        menuScreen.style.setProperty('display', 'flex', 'important');
+        if (menuLeft) menuLeft.style.setProperty('display', 'flex', 'important');
+        if (menuRight) menuRight.style.setProperty('display', 'flex', 'important');
+        if (menuLogo) menuLogo.style.setProperty('display', 'block', 'important');
         document.getElementById('logo').style.display = 'none';
         document.getElementById('lives').style.display = 'none';
         document.getElementById('score').style.display = 'none';
