@@ -2402,15 +2402,15 @@ class Game {
         const notificationEl = document.getElementById('powerupNotification');
         
         const powerupInfo = {
-            'FIRE_RATE': { text: '⚡ TAXA DE TIRO +', color: '#ff4444' },
-            'BULLET_SPEED': { text: '➤ VELOCIDADE DE BALA +', color: '#44ffff' },
-            'BULLET_SIZE': { text: '● TAMANHO DE BALA +', color: '#ffff44' },
-            'MOVEMENT_SPEED': { text: '↑ VELOCIDADE +', color: '#44ff44' },
+            'FIRE_RATE': { text: 'TAXA DE TIRO +', color: '#ff4444' },
+            'BULLET_SPEED': { text: 'VELOCIDADE DE BALA +', color: '#44ffff' },
+            'BULLET_SIZE': { text: 'TAMANHO DE BALA +', color: '#ffff44' },
+            'MOVEMENT_SPEED': { text: 'VELOCIDADE +', color: '#44ff44' },
             'PIERCING': { 
-                text: `◆ PERFURAÇÃO NÍVEL ${this.player.powerups.piercing}!`, 
+                text: `PERFURAÇÃO NÍVEL ${this.player.powerups.piercing}!`, 
                 color: '#ff44ff' 
             },
-            'HEALTH': { text: '❤️ VIDA MÁXIMA +', color: '#ff0000' }
+            'HEALTH': { text: 'VIDA MÁXIMA +', color: '#ff0000' }
         };
         
         const info = powerupInfo[powerupType];
